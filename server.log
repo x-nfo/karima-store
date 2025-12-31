@@ -1,0 +1,17 @@
+2025/12/31 18:06:34 Successfully connected to PostgreSQL database
+2025/12/31 18:06:34 Successfully connected to Redis
+2025/12/31 18:06:34 Database migrations completed successfully
+2025/12/31 18:06:34 Starting Karima Store API on port 8080 (Environment: development)
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.10                   │ 
+ │               http://127.0.0.1:8080               │ 
+ │       (bound on host 0.0.0.0 and port 8080)       │ 
+ │                                                   │ 
+ │ Handlers ............ 90  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............ 130973 │ 
+ └───────────────────────────────────────────────────┘ 
+
+[2025-12-31 18:07:34] 200 - GET /api/v1/health (    100.948µs)
+[2025-12-31 18:07:45] 200 - GET /api/v1/komerce/destination/search (10.430688152s)
+[2025-12-31 18:11:27] 400 - POST /api/v1/komerce/calculate (     43.155µs)

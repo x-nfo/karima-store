@@ -1,0 +1,265 @@
+{
+  "project_name": "Karima Store - Fashion E-commerce Backend",
+  "framework": "Golang Fiber + PostgreSQL + Redis",
+  "status": "in_progress",
+  "last_updated": "2025-12-31T08:31:00Z",
+
+  "modules": [
+    {
+      "module_id": 1,
+      "name": "Fondasi Infrastruktur & Database",
+      "status": "completed",
+      "completed_tasks": [
+        "Project structure setup (cmd/internal/pkg)",
+        "PostgreSQL database connection",
+        "Redis connection setup",
+        "GORM ORM integration",
+        "golang-migrate setup",
+        "Database schema migration files (000001_init_schema)",
+        "Docker/Podman configuration (docker-compose.yml)",
+        "Environment configuration (.env, .env.example)",
+        "Health check endpoint structure",
+        "CORS middleware implementation"
+      ],
+      "pending_tasks": []
+    },
+    {
+      "module_id": 2,
+      "name": "Autentikasi & Integrasi Ory Kratos",
+      "status": "pending",
+      "completed_tasks": [],
+      "pending_tasks": [
+        "Ory Kratos integration setup",
+        "Session validation middleware",
+        "Identity ID storage in users table",
+        "RBAC implementation (Customer vs Admin)",
+        "Cross-domain session cookie configuration"
+      ]
+    },
+    {
+      "module_id": 3,
+      "name": "Manajemen Katalog & Media",
+      "status": "completed",
+      "completed_tasks": [
+        "Data models created (Product, ProductSku, ProductMedia, Category)",
+        "Additional models (User, Cart, Order, Review, Wishlist, FlashSale)",
+        "Database schema design complete",
+        "Repository layer implementation (products, variants, categories)",
+        "Service layer implementation (products, variants, categories)",
+        "API CRUD handlers for products",
+        "API CRUD handlers for SKUs (variants)",
+        "API CRUD handlers for categories",
+        "Automatic slug generator logic",
+        "Manual stock update API",
+        "Catalog API routes configuration",
+        "Media model with image/video support",
+        "Media repository with CRUD operations",
+        "Media service with file upload and validation",
+        "Media handler with upload and management endpoints",
+        "Product handler updated with media support",
+        "Media routes configuration",
+        "Local file storage implementation",
+        "Primary image management",
+        "Media management documentation",
+        "Cloudflare R2 storage integration",
+        "R2 storage service implementation",
+        "Automatic storage selection (local/R2)",
+        "R2 configuration in config",
+        "R2 integration documentation"
+      ],
+      "pending_tasks": []
+    },
+    {
+      "module_id": 4,
+      "name": "Pricing Engine & Shipping",
+      "status": "in_progress",
+      "completed_tasks": [
+        "CalculatePrice function implementation",
+        "Retail price logic",
+        "Tiering price logic (Reseller)",
+        "Flash sale price logic",
+        "Total weight calculation (SKU Weight * Qty)",
+        "Shipping cost calculator (basic implementation)",
+        "Order summary calculation",
+        "Pricing API endpoints",
+        "Pricing engine documentation",
+        "Coupon code system implementation",
+        "Coupon validation and discount calculation",
+        "Tax calculation (11% VAT)",
+        "Shipping zones configuration",
+        "Free shipping thresholds",
+        "Enhanced order summary with tax and coupons",
+        "Database migrations for pricing enhancements",
+        "RajaOngkir/Komerce API integration documentation",
+        "R2 storage service implementation",
+        "Automatic storage selection (local/R2)",
+        "R2 configuration in config",
+        "R2 integration documentation",
+        "RajaOngkir/Komerce API integration"
+      ],
+      "pending_tasks": [
+        "Subdistrict-based shipping cost"
+      ]
+    },
+    {
+      "module_id": 5,
+      "name": "Transaksi & Payment Gateway",
+      "status": "completed",
+      "completed_tasks": [
+        "Checkout request/response models created",
+        "Checkout endpoint implementation",
+        "Midtrans Snap Token generation",
+        "Webhook listener for payment notifications",
+        "Order repository with CRUD operations",
+        "Checkout service with payment processing",
+        "Stock reduction on payment success",
+        "Stock restoration on payment failure/refund",
+        "Order status updates (pending, confirmed, shipped, delivered, cancelled, refunded)",
+        "Payment status tracking (pending, paid, failed, refunded)",
+        "Signature verification for webhooks",
+        "Checkout and webhook routes configuration",
+        "Payment gateway documentation"
+      ],
+      "pending_tasks": []
+    },
+    {
+      "module_id": 6,
+      "name": "Notifikasi & Caching",
+      "status": "pending",
+      "completed_tasks": [],
+      "pending_tasks": [
+        "Redis Caching (Cache Aside pattern)",
+        "Product catalog endpoint caching",
+        "WhatsApp Gateway API integration",
+        "Order creation notification",
+        "Payment success notification",
+        "Asynchronous notification system (Goroutine/Queue)"
+      ]
+    }
+  ],
+
+  "completed_files": {
+    "infrastructure": [
+      "docker-compose.yml",
+      "Dockerfile",
+      ".env",
+      ".env.example",
+      "go.mod",
+      "go.sum"
+    ],
+    "cmd": [
+      "cmd/api/main.go",
+      "cmd/migrate/main.go"
+    ],
+    "internal": [
+      "internal/config/config.go",
+      "internal/database/postgresql.go",
+      "internal/database/redis.go",
+      "internal/database/migration.go",
+      "internal/middleware/auth.go",
+      "internal/middleware/cors.go",
+      "internal/routes/routes.go",
+      "internal/handlers/product_handler.go",
+      "internal/handlers/variant_handler.go",
+      "internal/handlers/category_handler.go",
+      "internal/repository/product_repository.go",
+      "internal/repository/variant_repository.go",
+      "internal/repository/category_repository.go",
+      "internal/services/product_service.go",
+      "internal/services/variant_service.go",
+      "internal/services/category_service.go",
+      "internal/services/pricing_service.go",
+      "internal/services/media_service.go",
+      "internal/services/checkout_service.go"
+    ],
+    "storage": [
+      "internal/storage/r2_storage.go"
+    ],
+    "handlers": [
+      "internal/handlers/media_handler.go",
+      "internal/handlers/checkout_handler.go",
+      "internal/handlers/pricing_handler.go"
+    ],
+    "models": [
+      "internal/models/user.go",
+      "internal/models/product.go",
+      "internal/models/cart.go",
+      "internal/models/order.go",
+      "internal/models/review.go",
+      "internal/models/wishlist.go",
+      "internal/models/flash_sale.go",
+      "internal/models/coupon.go",
+      "internal/models/tax.go",
+      "internal/models/shipping_zone.go",
+      "internal/models/media.go",
+      "internal/models/checkout.go"
+    ],
+    "repositories": [
+      "internal/repository/media_repository.go",
+      "internal/repository/coupon_repository.go",
+      "internal/repository/shipping_zone_repository.go",
+      "internal/repository/order_repository.go"
+    ],
+    "migrations": [
+      "migrations/000001_init_schema.up.sql",
+      "migrations/000001_init_schema.down.sql",
+      "migrations/000002_add_pricing_enhancements.up.sql",
+      "migrations/000002_add_pricing_enhancements.down.sql",
+      "migrations/000003_add_media_table.up.sql",
+      "migrations/000003_add_media_table.down.sql"
+    ],
+    "documentation": [
+      "docs/api_standards.md",
+      "docs/architecture_path.md",
+      "docs/blueprint_db.dbml",
+      "docs/master_playbook.md",
+      "docs/naming_convention.md",
+      "docs/pricing_engine.md",
+      "docs/media_management.md",
+      "docs/r2_integration.md",
+      "docs/payment_gateway.md"
+    ]
+  },
+
+  "in_progress_tasks": [],
+
+  "next_priorities": [
+    "Start Module 2: Ory Kratos authentication integration",
+    "Start Module 6: Notification & Caching",
+    "Enhance Module 4: Integrate RajaOngkir/Komerce API for shipping",
+    "Create order history and tracking endpoints",
+    "Implement refund processing"
+  ],
+
+  "technical_standards": {
+    "api_response_format": {
+      "success": "{ \"status\": \"success\", \"data\": { ... } }",
+      "error": "{ \"status\": \"error\", \"message\": \"...\", \"code\": 400 }"
+    },
+    "naming_conventions": {
+      "url": "kebab-case",
+      "json_keys": "snake_case",
+      "golang_structs": "PascalCase",
+      "database_tables": "snake_case_plural",
+      "database_columns": "snake_case",
+      "golang_variables": "camelCase"
+    },
+    "date_format": "ISO 8601 (UTC): YYYY-MM-DDTHH:mm:ssZ",
+    "api_versioning": "/api/v1/"
+  },
+
+  "architecture_notes": {
+    "domains": {
+      "storefront": "https://karima.com",
+      "admin_panel": "https://admin.ks-backend.cloud",
+      "api_gateway": "https://api.ks-backend.cloud",
+      "auth_service": "https://auth.ks-backend.cloud"
+    },
+    "cors_allowed_origins": [
+      "https://karima.com",
+      "https://admin.ks-backend.cloud"
+    ],
+    "container_engine": "Podman",
+    "orchestration": "podman-compose"
+  }
+}
