@@ -12,10 +12,10 @@ import (
 type PricingService struct {
 	productRepo      repository.ProductRepository
 	variantRepo      repository.VariantRepository
-	flashSaleRepo   *repository.FlashSaleRepository
+	flashSaleRepo    *repository.FlashSaleRepository
 	couponRepo       repository.CouponRepository
 	shippingZoneRepo repository.ShippingZoneRepository
-	taxRate         float64 // Default tax rate (e.g., 0.11 for 11% VAT)
+	taxRate          float64 // Default tax rate (e.g., 0.11 for 11% VAT)
 }
 
 type CustomerType string
@@ -26,10 +26,10 @@ const (
 )
 
 type PriceCalculationRequest struct {
-	ProductID    uint
-	VariantID    *uint
-	Quantity     int
-	CustomerType CustomerType
+	ProductID    uint         `json:"product_id"`
+	VariantID    *uint        `json:"variant_id,omitempty"`
+	Quantity     int          `json:"quantity"`
+	CustomerType CustomerType `json:"customer_type"`
 }
 
 type PriceCalculationResponse struct {
@@ -50,13 +50,13 @@ type CouponCalculationRequest struct {
 	Code           string
 	UserID         uint
 	PurchaseAmount float64
-	CustomerType  CustomerType
+	CustomerType   CustomerType
 }
 
 type ShippingCalculationRequest struct {
-	Items         []ShippingItem `json:"items"`
-	Destination   string         `json:"destination"` // subdistrict_id for RajaOngkir
-	ShippingType  string         `json:"shipping_type"` // "jne", "tiki", "pos", etc.
+	Items        []ShippingItem `json:"items"`
+	Destination  string         `json:"destination"`   // subdistrict_id for RajaOngkir
+	ShippingType string         `json:"shipping_type"` // "jne", "tiki", "pos", etc.
 }
 
 type ShippingItem struct {
@@ -68,23 +68,23 @@ type ShippingItem struct {
 }
 
 type ShippingCalculationResponse struct {
-	TotalWeight    float64 `json:"total_weight"` // in kg
-	ShippingCost   float64 `json:"shipping_cost"`
-	ShippingType   string  `json:"shipping_type"`
-	EstimatedDays  int     `json:"estimated_days"`
+	TotalWeight   float64 `json:"total_weight"` // in kg
+	ShippingCost  float64 `json:"shipping_cost"`
+	ShippingType  string  `json:"shipping_type"`
+	EstimatedDays int     `json:"estimated_days"`
 }
 
 type OrderSummary struct {
-	Subtotal        float64 `json:"subtotal"`
-	ShippingCost    float64 `json:"shipping_cost"`
-	TotalWeight     float64 `json:"total_weight"`
-	Total           float64 `json:"total"`
-	ItemCount       int     `json:"item_count"`
-	TotalDiscount   float64 `json:"total_discount"`
-	CouponDiscount   float64 `json:"coupon_discount"`
-	TaxAmount       float64 `json:"tax_amount"`
-	CouponApplied   bool    `json:"coupon_applied"`
-	CouponCode      *string `json:"coupon_code,omitempty"`
+	Subtotal       float64 `json:"subtotal"`
+	ShippingCost   float64 `json:"shipping_cost"`
+	TotalWeight    float64 `json:"total_weight"`
+	Total          float64 `json:"total"`
+	ItemCount      int     `json:"item_count"`
+	TotalDiscount  float64 `json:"total_discount"`
+	CouponDiscount float64 `json:"coupon_discount"`
+	TaxAmount      float64 `json:"tax_amount"`
+	CouponApplied  bool    `json:"coupon_applied"`
+	CouponCode     *string `json:"coupon_code,omitempty"`
 }
 
 func NewPricingService(
@@ -97,10 +97,10 @@ func NewPricingService(
 	return &PricingService{
 		productRepo:      productRepo,
 		variantRepo:      variantRepo,
-		flashSaleRepo:   flashSaleRepo,
+		flashSaleRepo:    flashSaleRepo,
 		couponRepo:       couponRepo,
 		shippingZoneRepo: shippingZoneRepo,
-		taxRate:         0.11, // Default 11% VAT for Indonesia
+		taxRate:          0.11, // Default 11% VAT for Indonesia
 	}
 }
 

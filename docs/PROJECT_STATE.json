@@ -2,8 +2,7 @@
   "project_name": "Karima Store - Fashion E-commerce Backend",
   "framework": "Golang Fiber + PostgreSQL + Redis",
   "status": "in_progress",
-  "last_updated": "2025-12-31T08:31:00Z",
-
+  "last_updated": "2026-01-01T16:50:00Z",
   "modules": [
     {
       "module_id": 1,
@@ -26,14 +25,19 @@
     {
       "module_id": 2,
       "name": "Autentikasi & Integrasi Ory Kratos",
-      "status": "pending",
-      "completed_tasks": [],
+      "status": "in_progress",
+      "completed_tasks": [
+        "Setup Ory Kratos instance (Docker/Cloud)",
+        "Kratos configuration (kratos.yml)",
+        "Identity Schema definition"
+      ],
       "pending_tasks": [
-        "Ory Kratos integration setup",
-        "Session validation middleware",
-        "Identity ID storage in users table",
-        "RBAC implementation (Customer vs Admin)",
-        "Cross-domain session cookie configuration"
+        "Middleware for Kratos authentication",
+        "User registration flow integration",
+        "User login flow integration",
+        "Session verification logic",
+        "Role-Based Access Control (RBAC) implementation",
+        "Sync user data from Kratos to local DB"
       ]
     },
     {
@@ -72,7 +76,7 @@
     {
       "module_id": 4,
       "name": "Pricing Engine & Shipping",
-      "status": "in_progress",
+      "status": "completed",
       "completed_tasks": [
         "CalculatePrice function implementation",
         "Retail price logic",
@@ -90,16 +94,24 @@
         "Free shipping thresholds",
         "Enhanced order summary with tax and coupons",
         "Database migrations for pricing enhancements",
-        "RajaOngkir/Komerce API integration documentation",
-        "R2 storage service implementation",
-        "Automatic storage selection (local/R2)",
-        "R2 configuration in config",
-        "R2 integration documentation",
-        "RajaOngkir/Komerce API integration"
+        "Komerce API client implementation",
+        "Komerce service layer implementation",
+        "Komerce handler with destination search",
+        "Komerce handler with shipping cost calculation",
+        "Destination search endpoint (GET /api/v1/shipping/destination/search)",
+        "Calculate shipping cost endpoint (GET /api/v1/shipping/calculate)",
+        "Komerce routes configuration",
+        "Komerce API integration with sandbox environment",
+        "RajaOngkir legacy code cleanup (removed deprecated client)",
+        "Swagger documentation for Komerce endpoints",
+        "Komerce migration documentation",
+        "RajaOngkir integration documentation (updated for Komerce)",
+        "Pricing engine documentation (updated with Komerce)",
+        "Test script for Module 4 (scripts/test_modul4.sh)",
+        "JSON tags fix for PriceCalculationRequest",
+        "Full Komerce integration testing (destination search, shipping calculation, pricing)"
       ],
-      "pending_tasks": [
-        "Subdistrict-based shipping cost"
-      ]
+      "pending_tasks": []
     },
     {
       "module_id": 5,
@@ -125,19 +137,22 @@
     {
       "module_id": 6,
       "name": "Notifikasi & Caching",
-      "status": "pending",
-      "completed_tasks": [],
-      "pending_tasks": [
+      "status": "completed",
+      "completed_tasks": [
         "Redis Caching (Cache Aside pattern)",
         "Product catalog endpoint caching",
-        "WhatsApp Gateway API integration",
+        "WhatsApp Gateway API integration (Fonnte)",
+        "Fonnte Client implementation",
+        "Async notification system (Goroutine)",
         "Order creation notification",
         "Payment success notification",
-        "Asynchronous notification system (Goroutine/Queue)"
-      ]
+        "Shipping notification",
+        "WhatsApp handler and routes",
+        "Notification service enhancement"
+      ],
+      "pending_tasks": []
     }
   ],
-
   "completed_files": {
     "infrastructure": [
       "docker-compose.yml",
@@ -170,7 +185,11 @@
       "internal/services/category_service.go",
       "internal/services/pricing_service.go",
       "internal/services/media_service.go",
-      "internal/services/checkout_service.go"
+      "internal/services/checkout_service.go",
+      "internal/services/komerce_service.go",
+      "internal/services/notification_service.go",
+      "internal/komerce/client.go",
+      "internal/fonnte/client.go"
     ],
     "storage": [
       "internal/storage/r2_storage.go"
@@ -178,7 +197,9 @@
     "handlers": [
       "internal/handlers/media_handler.go",
       "internal/handlers/checkout_handler.go",
-      "internal/handlers/pricing_handler.go"
+      "internal/handlers/pricing_handler.go",
+      "internal/handlers/komerce_handler.go",
+      "internal/handlers/whatsapp_handler.go"
     ],
     "models": [
       "internal/models/user.go",
@@ -192,7 +213,8 @@
       "internal/models/tax.go",
       "internal/models/shipping_zone.go",
       "internal/models/media.go",
-      "internal/models/checkout.go"
+      "internal/models/checkout.go",
+      "internal/models/komerce.go"
     ],
     "repositories": [
       "internal/repository/media_repository.go",
@@ -217,20 +239,25 @@
       "docs/pricing_engine.md",
       "docs/media_management.md",
       "docs/r2_integration.md",
-      "docs/payment_gateway.md"
+      "docs/payment_gateway.md",
+      "docs/Progress_flows/komerce_migration.md",
+      "docs/Progress_flows/rajaongkir_integration.md",
+      "docs/Progress_flows/pricing_engine.md"
+    ],
+    "test_scripts": [
+      "scripts/test_modul3.sh",
+      "scripts/test_modul4.sh",
+      "scripts/test_modul5.sh",
+      "scripts/test_modul6.sh"
     ]
   },
-
   "in_progress_tasks": [],
-
   "next_priorities": [
     "Start Module 2: Ory Kratos authentication integration",
-    "Start Module 6: Notification & Caching",
-    "Enhance Module 4: Integrate RajaOngkir/Komerce API for shipping",
-    "Create order history and tracking endpoints",
-    "Implement refund processing"
+    "Finalize Order History & Tracking (already partially in)",
+    "Implement Refund Processing",
+    "Admin Panel Development"
   ],
-
   "technical_standards": {
     "api_response_format": {
       "success": "{ \"status\": \"success\", \"data\": { ... } }",
@@ -247,7 +274,6 @@
     "date_format": "ISO 8601 (UTC): YYYY-MM-DDTHH:mm:ssZ",
     "api_versioning": "/api/v1/"
   },
-
   "architecture_notes": {
     "domains": {
       "storefront": "https://karima.com",

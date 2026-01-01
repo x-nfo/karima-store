@@ -2,69 +2,34 @@ package swagger
 
 import "github.com/swaggo/swag"
 
-// @title Karima Store API
-// @version 1.0.0
-// @description Karima Store - E-commerce API Documentation
-// @termsOfService https://karima-store.com/terms
-// @contact.name Karima Store Team
-// @contact.email team@karima-store.com
-// @contact.url https://karima-store.com
-// @license.name MIT
-// @license.url https://github.com/karima-store/karima-store/blob/main/LICENSE
-// @host localhost:8080
-// @BasePath /
-// @schemes http https
-// @securityDefinitions.BearerAuth BearerAuth
-// @security.BearerAuth type:apiKey name:Authorization in:header description:JWT Bearer Token
+const docTemplate = `{
+    "schemes": {{ marshal .Schemes }},
+    "swagger": "2.0",
+    "info": {
+        "description": "{{escape .Description}}",
+        "title": "{{.Title}}",
+        "contact": {},
+        "version": "{{.Version}}"
+    },
+    "host": "{{.Host}}",
+    "basePath": "{{.BasePath}}",
+    "paths": {}
+}`
 
-// KarimaStoreAPI is the main struct for the API documentation
-type KarimaStoreAPI struct{}
-
-// APIInfo returns the API information
-func (a *KarimaStoreAPI) APIInfo() *swag.Spec {
-    return &swag.Spec{
-        Version:          "1.0.0",
-        Title:            "Karima Store API",
-        Description:      "Karima Store - E-commerce API Documentation",
-        TermsOfService:   "https://karima-store.com/terms",
-        Contact: &swag.Contact{
-            Name:      "Karima Store Team",
-            Email:     "team@karima-store.com",
-            URL:       "https://karima-store.com",
-        },
-        License: &swag.License{
-            Name:      "MIT",
-            URL:       "https://github.com/karima-store/karima-store/blob/main/LICENSE",
-        },
-        Host:             "localhost:8080",
-        BasePath:         "/",
-        Schemes:          []string{"http", "https"},
-        Consumes:         []string{"application/json"},
-        Produces:         []string{"application/json"},
-        SecurityDefinitions: map[string]swag.SecurityScheme{
-            "BearerAuth": {
-                Type: "apiKey",
-                Name: "Authorization",
-                In:   "header",
-                Description: "JWT Bearer Token",
-            },
-        },
-    }
+// SwaggerInfo holds exported Swagger Info so clients can modify it
+var SwaggerInfo = &swag.Spec{
+	Version:          "1.0.0",
+	Host:             "localhost:8080",
+	BasePath:         "/api/v1",
+	Schemes:          []string{"http"},
+	Title:            "Karima Store API",
+	Description:      "Karima Store E-commerce API Documentation",
+	InfoInstanceName: "swagger",
+	SwaggerTemplate:  docTemplate,
+    LeftDelim:        "{{",
+    RightDelim:       "}}",
 }
 
-// GetSwagger returns the Swagger specification
-func GetSwagger() *swag.Spec {
-    return &swag.Spec{
-        Info:             APIInfo,
-        Paths:            map[string]swag.PathItem{},
-        Definitions:      map[string]swag.Schema{},
-        SecurityDefinitions: map[string]swag.SecurityScheme{
-            "BearerAuth": {
-                Type: "apiKey",
-                Name: "Authorization",
-                In:   "header",
-                Description: "JWT Bearer Token",
-            },
-        },
-    }
+func init() {
+	swag.Register(SwaggerInfo.InstanceName(), SwaggerInfo)
 }

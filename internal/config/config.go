@@ -27,7 +27,7 @@ type Config struct {
 	AppEnv  string
 
 	// JWT
-	JWTSecret    string
+	JWTSecret     string
 	JWTExpiration string
 
 	// File Storage
@@ -80,6 +80,10 @@ type Config struct {
 	// Komerce
 	KomerceAPIKey  string
 	KomerceBaseURL string
+
+	// Fonnte
+	FonnteToken string
+	FonnteURL   string
 }
 
 func Load() *Config {
@@ -107,7 +111,7 @@ func Load() *Config {
 		AppEnv:  getEnv("APP_ENV", "development"),
 
 		// JWT
-		JWTSecret:    getEnv("JWT_SECRET", "super_secret_key"),
+		JWTSecret:     getEnv("JWT_SECRET", "super_secret_key"),
 		JWTExpiration: getEnv("JWT_EXPIRATION", "24h"),
 
 		// File Storage
@@ -160,6 +164,10 @@ func Load() *Config {
 		// Komerce
 		KomerceAPIKey:  getEnv("KOMERCE_API_KEY", ""),
 		KomerceBaseURL: getEnv("KOMERCE_BASE_URL", "https://api-sandbox.collaborator.komerce.id"),
+
+		// Fonnte
+		FonnteToken: getEnv("FONNTE_TOKEN", ""),
+		FonnteURL:   getEnv("FONNTE_URL", "https://api.fonnte.com/send"),
 	}
 }
 

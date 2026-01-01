@@ -1,0 +1,2659 @@
+definitions:
+  handlers.CancelOrderRequest:
+    properties:
+      order_no:
+        type: string
+    type: object
+  handlers.CouponValidationRequest:
+    properties:
+      code:
+        type: string
+      customer_type:
+        $ref: '#/definitions/services.CustomerType'
+      purchase_amount:
+        type: number
+      user_id:
+        type: integer
+    type: object
+  handlers.OrderSummaryRequest:
+    properties:
+      coupon_code:
+        type: string
+      customer_type:
+        $ref: '#/definitions/services.CustomerType'
+      items:
+        items:
+          $ref: '#/definitions/services.PriceCalculationRequest'
+        type: array
+      shipping:
+        $ref: '#/definitions/services.ShippingCalculationRequest'
+      user_id:
+        type: integer
+    type: object
+  handlers.RequestPickupRequest:
+    properties:
+      orders:
+        items:
+          type: string
+        type: array
+      pickup_date:
+        type: string
+      pickup_time:
+        type: string
+      pickup_vehicle:
+        type: string
+    type: object
+  models.Cart:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      items:
+        description: Relations
+        items:
+          $ref: '#/definitions/models.CartItem'
+        type: array
+      updated_at:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+      user_id:
+        type: integer
+    type: object
+  models.CartItem:
+    properties:
+      cart:
+        $ref: '#/definitions/models.Cart'
+      cart_id:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: integer
+      product:
+        $ref: '#/definitions/models.Product'
+      product_id:
+        type: integer
+      product_image:
+        type: string
+      product_name:
+        description: Product snapshot
+        type: string
+      product_sku:
+        type: string
+      product_variant:
+        $ref: '#/definitions/models.ProductVariant'
+      product_variant_id:
+        type: integer
+      quantity:
+        description: Cart item details
+        type: integer
+      total_price:
+        type: number
+      unit_price:
+        type: number
+      updated_at:
+        type: string
+      variant_color:
+        type: string
+      variant_name:
+        description: Variant info (if applicable)
+        type: string
+      variant_size:
+        type: string
+    type: object
+  models.CheckoutItem:
+    properties:
+      product_id:
+        type: integer
+      quantity:
+        minimum: 1
+        type: integer
+      variant_id:
+        type: integer
+    required:
+    - product_id
+    - quantity
+    type: object
+  models.CheckoutRequest:
+    properties:
+      coupon_code:
+        type: string
+      customer_notes:
+        description: Optional
+        type: string
+      items:
+        description: Cart items
+        items:
+          $ref: '#/definitions/models.CheckoutItem'
+        minItems: 1
+        type: array
+      payment_method:
+        description: Payment method
+        enum:
+        - bank_transfer
+        - credit_card
+        - e_wallet
+        - cod
+        type: string
+      shipping_address:
+        type: string
+      shipping_city:
+        type: string
+      shipping_name:
+        description: Shipping information
+        type: string
+      shipping_phone:
+        type: string
+      shipping_postal_code:
+        type: string
+      shipping_province:
+        type: string
+      user_id:
+        description: Customer info
+        type: integer
+    required:
+    - items
+    - payment_method
+    - shipping_address
+    - shipping_city
+    - shipping_name
+    - shipping_phone
+    - shipping_postal_code
+    - shipping_province
+    - user_id
+    type: object
+  models.FlashSale:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      discount_percentage:
+        description: Discount
+        type: number
+      end_time:
+        type: string
+      id:
+        type: integer
+      max_quantity_per_user:
+        description: Limits
+        type: integer
+      name:
+        description: Basic Information
+        type: string
+      products:
+        description: Relations
+        items:
+          $ref: '#/definitions/models.Product'
+        type: array
+      start_time:
+        description: Timing
+        type: string
+      status:
+        $ref: '#/definitions/models.FlashSaleStatus'
+      total_orders:
+        type: integer
+      total_revenue:
+        type: number
+      total_sold:
+        description: Statistics
+        type: integer
+      total_stock_limit:
+        description: 0 = unlimited
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  models.FlashSaleStatus:
+    enum:
+    - upcoming
+    - active
+    - ended
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - FlashSaleUpcoming
+    - FlashSaleActive
+    - FlashSaleEnded
+    - FlashSaleCancelled
+  models.KomerceCreateOrderRequest:
+    properties:
+      additional_cost:
+        type: integer
+      brand_name:
+        type: string
+      cod_value:
+        type: integer
+      destination_pin_point:
+        type: string
+      grand_total:
+        type: integer
+      insurance_value:
+        type: integer
+      order_date:
+        type: string
+      order_details:
+        items:
+          $ref: '#/definitions/models.KomerceOrderDetail'
+        type: array
+      origin_pin_point:
+        type: string
+      payment_method:
+        type: string
+      receiver_address:
+        type: string
+      receiver_destination_id:
+        type: string
+      receiver_name:
+        type: string
+      receiver_phone:
+        type: string
+      service_fee:
+        type: integer
+      shipper_address:
+        type: string
+      shipper_destination_id:
+        type: string
+      shipper_email:
+        type: string
+      shipper_name:
+        type: string
+      shipper_phone:
+        type: string
+      shipping:
+        type: string
+      shipping_cashback:
+        type: integer
+      shipping_cost:
+        type: integer
+      shipping_type:
+        type: string
+    type: object
+  models.KomerceOrderDetail:
+    properties:
+      product_height:
+        type: integer
+      product_length:
+        type: integer
+      product_name:
+        type: string
+      product_price:
+        type: integer
+      product_variant_name:
+        type: string
+      product_weight:
+        type: integer
+      product_width:
+        type: integer
+      qty:
+        type: integer
+      subtotal:
+        type: integer
+    type: object
+  models.Media:
+    properties:
+      alt_text:
+        type: string
+      content_type:
+        type: string
+      created_at:
+        type: string
+      file_name:
+        description: File Information
+        type: string
+      file_size:
+        description: in bytes
+        type: integer
+      height:
+        type: integer
+      id:
+        type: integer
+      is_primary:
+        type: boolean
+      position:
+        type: integer
+      product:
+        $ref: '#/definitions/models.Product'
+      product_id:
+        description: Relations
+        type: integer
+      status:
+        $ref: '#/definitions/models.MediaStatus'
+      storage_path:
+        type: string
+      storage_provider:
+        description: Storage Information
+        type: string
+      type:
+        allOf:
+        - $ref: '#/definitions/models.MediaType'
+        description: Basic Information
+      updated_at:
+        type: string
+      url:
+        type: string
+      width:
+        type: integer
+    type: object
+  models.MediaStatus:
+    enum:
+    - active
+    - inactive
+    type: string
+    x-enum-varnames:
+    - MediaStatusActive
+    - MediaStatusInactive
+  models.MediaType:
+    enum:
+    - image
+    - video
+    type: string
+    x-enum-varnames:
+    - MediaTypeImage
+    - MediaTypeVideo
+  models.MidtransPaymentNotification:
+    properties:
+      approval_code:
+        type: string
+      bank:
+        type: string
+      fraud_status:
+        type: string
+      gross_amount:
+        type: number
+      order_id:
+        type: string
+      payment_amounts:
+        items:
+          $ref: '#/definitions/models.PaymentAmount'
+        type: array
+      payment_type:
+        type: string
+      signature_key:
+        type: string
+      status_code:
+        type: string
+      status_message:
+        type: string
+      transaction_id:
+        type: string
+      transaction_status:
+        type: string
+      transaction_time:
+        type: string
+      va_numbers:
+        items:
+          $ref: '#/definitions/models.VANumber'
+        type: array
+    type: object
+  models.Order:
+    properties:
+      admin_notes:
+        type: string
+      cancel_reason:
+        type: string
+      cancelled_at:
+        type: string
+      confirmed_at:
+        description: Timestamps
+        type: string
+      created_at:
+        type: string
+      customer_notes:
+        description: Notes
+        type: string
+      delivered_at:
+        type: string
+      discount:
+        type: number
+      id:
+        type: integer
+      items:
+        description: Relations
+        items:
+          $ref: '#/definitions/models.OrderItem'
+        type: array
+      order_number:
+        description: Order Information
+        type: string
+      payment_method:
+        $ref: '#/definitions/models.PaymentMethod'
+      payment_status:
+        $ref: '#/definitions/models.PaymentStatus'
+      shipped_at:
+        type: string
+      shipping_address:
+        type: string
+      shipping_city:
+        type: string
+      shipping_cost:
+        type: number
+      shipping_name:
+        description: Shipping Information
+        type: string
+      shipping_phone:
+        type: string
+      shipping_postal_code:
+        type: string
+      shipping_provider:
+        type: string
+      shipping_province:
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/models.OrderStatus'
+        description: Status
+      subtotal:
+        description: Pricing
+        type: number
+      tax:
+        type: number
+      total_amount:
+        type: number
+      tracking_number:
+        description: Tracking
+        type: string
+      updated_at:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+      user_id:
+        type: integer
+    type: object
+  models.OrderItem:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      order_id:
+        type: integer
+      product:
+        $ref: '#/definitions/models.Product'
+      product_id:
+        type: integer
+      product_image:
+        type: string
+      product_name:
+        description: Product snapshot (to preserve price/details at time of order)
+        type: string
+      product_sku:
+        type: string
+      quantity:
+        description: Order details
+        type: integer
+      total_price:
+        type: number
+      unit_price:
+        type: number
+      updated_at:
+        type: string
+      variant_color:
+        type: string
+      variant_name:
+        description: Variant info (if applicable)
+        type: string
+      variant_size:
+        type: string
+    type: object
+  models.OrderStatus:
+    enum:
+    - pending
+    - confirmed
+    - processing
+    - shipped
+    - delivered
+    - cancelled
+    - refunded
+    type: string
+    x-enum-varnames:
+    - StatusPending
+    - StatusConfirmed
+    - StatusProcessing
+    - StatusShipped
+    - StatusDelivered
+    - StatusCancelled
+    - StatusRefunded
+  models.PaymentAmount:
+    properties:
+      amount:
+        type: number
+      payment_type:
+        type: string
+    type: object
+  models.PaymentMethod:
+    enum:
+    - bank_transfer
+    - credit_card
+    - e_wallet
+    - cod
+    type: string
+    x-enum-varnames:
+    - PaymentBankTransfer
+    - PaymentCreditCard
+    - PaymentEWallet
+    - PaymentCOD
+  models.PaymentStatus:
+    enum:
+    - pending
+    - paid
+    - failed
+    - refunded
+    type: string
+    x-enum-varnames:
+    - PaymentPending
+    - PaymentPaid
+    - PaymentFailed
+    - PaymentRefunded
+  models.Product:
+    properties:
+      brand:
+        description: Attributes
+        type: string
+      category:
+        $ref: '#/definitions/models.ProductCategory'
+      color:
+        type: string
+      compare_price:
+        description: Original price (for discount display)
+        type: number
+      created_at:
+        type: string
+      description:
+        type: string
+      dimensions:
+        description: LxWxH format
+        type: string
+      discount:
+        description: Discount percentage
+        type: number
+      flash_sales:
+        items:
+          $ref: '#/definitions/models.FlashSale'
+        type: array
+      id:
+        type: integer
+      material:
+        type: string
+      media:
+        description: Media
+        items:
+          $ref: '#/definitions/models.Media'
+        type: array
+      meta_description:
+        type: string
+      meta_title:
+        description: SEO
+        type: string
+      name:
+        description: Basic Information
+        type: string
+      order_items:
+        items:
+          $ref: '#/definitions/models.OrderItem'
+        type: array
+      price:
+        description: Pricing
+        type: number
+      published_at:
+        description: Timestamps
+        type: string
+      rating:
+        type: number
+      review_count:
+        type: integer
+      reviews:
+        items:
+          $ref: '#/definitions/models.Review'
+        type: array
+      size:
+        type: string
+      sku:
+        type: string
+      slug:
+        type: string
+      sold_count:
+        type: integer
+      status:
+        $ref: '#/definitions/models.ProductStatus'
+      stock:
+        description: Inventory
+        type: integer
+      thumbnail:
+        type: string
+      updated_at:
+        type: string
+      variants:
+        description: Relations
+        items:
+          $ref: '#/definitions/models.ProductVariant'
+        type: array
+      view_count:
+        description: Statistics
+        type: integer
+      weight:
+        description: in kg
+        type: number
+      wishlist:
+        items:
+          $ref: '#/definitions/models.Wishlist'
+        type: array
+    type: object
+  models.ProductCategory:
+    enum:
+    - tops
+    - bottoms
+    - dresses
+    - outerwear
+    - footwear
+    - accessories
+    type: string
+    x-enum-varnames:
+    - CategoryTops
+    - CategoryBottoms
+    - CategoryDresses
+    - CategoryOuterwear
+    - CategoryFootwear
+    - CategoryAccessories
+  models.ProductStatus:
+    enum:
+    - available
+    - out_of_stock
+    - discontinued
+    type: string
+    x-enum-varnames:
+    - StatusAvailable
+    - StatusOutOfStock
+    - StatusDiscontinued
+  models.ProductVariant:
+    properties:
+      color:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      name:
+        description: e.g., "Small - Red"
+        type: string
+      price:
+        type: number
+      product_id:
+        type: integer
+      size:
+        type: string
+      sku:
+        type: string
+      stock:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  models.Review:
+    properties:
+      admin_notes:
+        type: string
+      comment:
+        type: string
+      created_at:
+        type: string
+      helpful_count:
+        description: Statistics
+        type: integer
+      id:
+        type: integer
+      images:
+        description: Media
+        items:
+          $ref: '#/definitions/models.ReviewImage'
+        type: array
+      is_approved:
+        description: Moderation
+        type: boolean
+      is_verified:
+        description: Verification
+        type: boolean
+      not_helpful_count:
+        type: integer
+      product:
+        $ref: '#/definitions/models.Product'
+      product_id:
+        description: Review Information
+        type: integer
+      rating:
+        description: Rating & Content
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+      user_id:
+        type: integer
+    type: object
+  models.ReviewImage:
+    properties:
+      alt_text:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      review_id:
+        type: integer
+      updated_at:
+        type: string
+      url:
+        type: string
+    type: object
+  models.User:
+    properties:
+      address:
+        description: Address Information
+        type: string
+      avatar:
+        type: string
+      cart:
+        $ref: '#/definitions/models.Cart'
+      city:
+        type: string
+      created_at:
+        type: string
+      date_of_birth:
+        type: string
+      email:
+        type: string
+      full_name:
+        description: Basic Information
+        type: string
+      gender:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      is_verified:
+        type: boolean
+      last_login_at:
+        description: Timestamps
+        type: string
+      orders:
+        description: Relations
+        items:
+          $ref: '#/definitions/models.Order'
+        type: array
+      phone:
+        type: string
+      postal_code:
+        type: string
+      province:
+        type: string
+      reviews:
+        items:
+          $ref: '#/definitions/models.Review'
+        type: array
+      role:
+        allOf:
+        - $ref: '#/definitions/models.UserRole'
+        description: Role & Status
+      updated_at:
+        type: string
+      wishlist:
+        items:
+          $ref: '#/definitions/models.Wishlist'
+        type: array
+    type: object
+  models.UserRole:
+    enum:
+    - admin
+    - customer
+    type: string
+    x-enum-varnames:
+    - RoleAdmin
+    - RoleCustomer
+  models.VANumber:
+    properties:
+      bank:
+        type: string
+      va_number:
+        type: string
+    type: object
+  models.Wishlist:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      product:
+        $ref: '#/definitions/models.Product'
+      product_id:
+        type: integer
+      updated_at:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+      user_id:
+        type: integer
+    type: object
+  services.CustomerType:
+    enum:
+    - retail
+    - reseller
+    type: string
+    x-enum-varnames:
+    - CustomerRetail
+    - CustomerReseller
+  services.PriceCalculationRequest:
+    properties:
+      customer_type:
+        $ref: '#/definitions/services.CustomerType'
+      product_id:
+        type: integer
+      quantity:
+        type: integer
+      variant_id:
+        type: integer
+    type: object
+  services.ShippingCalculationRequest:
+    properties:
+      destination:
+        description: subdistrict_id for RajaOngkir
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/services.ShippingItem'
+        type: array
+      shipping_type:
+        description: '"jne", "tiki", "pos", etc.'
+        type: string
+    type: object
+  services.ShippingItem:
+    properties:
+      dimensions:
+        description: LxWxH format
+        type: string
+      productID:
+        type: integer
+      quantity:
+        type: integer
+      variantID:
+        type: integer
+      weight:
+        description: in kg
+        format: float64
+        type: number
+    type: object
+info:
+  contact: {}
+paths:
+  /api/v1/categories:
+    get:
+      description: Retrieve all available product categories
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all categories
+      tags:
+      - categories
+  /api/v1/categories/{category}/products:
+    get:
+      description: Retrieve products filtered by category
+      parameters:
+      - description: Product category
+        in: path
+        name: category
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get products by category
+      tags:
+      - categories
+  /api/v1/categories/stats:
+    get:
+      description: Retrieve product count statistics for each category
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get category statistics
+      tags:
+      - categories
+  /api/v1/checkout:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new order with items, calculates pricing including shipping
+        and tax, then generates Midtrans Snap payment token. Returns order details
+        and payment URL.
+      parameters:
+      - description: Checkout request with items and shipping information
+        in: body
+        name: checkout
+        required: true
+        schema:
+          $ref: '#/definitions/models.CheckoutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success response with order number, snap token, and payment
+            URL
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error during order creation or payment token generation
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create Order and Generate Payment Token
+      tags:
+      - payment
+  /api/v1/media/:id:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a media record and its associated file
+      parameters:
+      - description: Media ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Media not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete media
+      tags:
+      - media
+  /api/v1/media/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload an image file and create a media record
+      parameters:
+      - description: Product ID
+        in: formData
+        name: product_id
+        required: true
+        type: integer
+      - description: Image file
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Position
+        in: formData
+        name: position
+        type: integer
+      - description: Is primary
+        in: formData
+        name: is_primary
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Upload response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Upload media
+      tags:
+      - media
+  /api/v1/orders:
+    get:
+      consumes:
+      - application/json
+      description: Get list of orders for the authenticated user
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Get user orders
+      tags:
+      - orders
+  /api/v1/orders/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get details of a specific order
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Get order details
+      tags:
+      - orders
+  /api/v1/orders/track:
+    get:
+      consumes:
+      - application/json
+      description: Get order status by order number (public)
+      parameters:
+      - description: Order Number
+        in: query
+        name: order_number
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Track order
+      tags:
+      - orders
+  /api/v1/payment/webhook:
+    post:
+      consumes:
+      - application/json
+      description: Receives and processes payment status notifications from Midtrans.
+        Updates order status and manages stock based on payment result. This endpoint
+        is called by Midtrans automatically.
+      parameters:
+      - description: Payment notification from Midtrans
+        in: body
+        name: notification
+        required: true
+        schema:
+          $ref: '#/definitions/models.MidtransPaymentNotification'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Notification processed successfully
+          schema:
+            type: string
+        "400":
+          description: Invalid notification format
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Error processing notification
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Process Midtrans Payment Webhook
+      tags:
+      - payment
+  /api/v1/pricing/calculate:
+    get:
+      consumes:
+      - application/json
+      description: Calculate the final price using query parameters instead of JSON
+        body
+      parameters:
+      - description: Product ID
+        in: query
+        name: product_id
+        required: true
+        type: integer
+      - description: Variant ID
+        in: query
+        name: variant_id
+        type: integer
+      - description: Quantity
+        in: query
+        name: quantity
+        required: true
+        type: integer
+      - description: Customer type (retail or reseller)
+        in: query
+        name: customer_type
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Price calculation response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Product not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Calculate product price by parameters
+      tags:
+      - pricing
+    post:
+      consumes:
+      - application/json
+      description: Calculate the final price based on customer type, quantity, and
+        active flash sales
+      parameters:
+      - description: Price calculation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.PriceCalculationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Price calculation response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Product not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Calculate product price
+      tags:
+      - pricing
+  /api/v1/pricing/coupons/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validate if a coupon code is valid and applicable
+      parameters:
+      - description: Coupon validation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CouponValidationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Coupon validation response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Invalid coupon
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Validate coupon code
+      tags:
+      - pricing
+  /api/v1/pricing/order-summary:
+    post:
+      consumes:
+      - application/json
+      description: Calculate complete order summary including pricing and shipping
+      parameters:
+      - description: Order summary request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.OrderSummaryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Order summary response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Product not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Calculate order summary
+      tags:
+      - pricing
+  /api/v1/pricing/products/{product_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get pricing information including available discounts and tiering
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Pricing information
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Product not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get pricing information
+      tags:
+      - pricing
+  /api/v1/pricing/shipping:
+    post:
+      consumes:
+      - application/json
+      description: Calculate shipping cost based on items, weight, and destination
+      parameters:
+      - description: Shipping calculation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.ShippingCalculationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Shipping calculation response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Calculate shipping cost
+      tags:
+      - pricing
+  /api/v1/products:
+    get:
+      description: Retrieve a list of products with pagination and optional filters
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by category
+        in: query
+        name: category
+        type: string
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Minimum price
+        in: query
+        name: min_price
+        type: number
+      - description: Maximum price
+        in: query
+        name: max_price
+        type: number
+      - description: Filter by brand
+        in: query
+        name: brand
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get products
+      tags:
+      - products
+    post:
+      consumes:
+      - application/json
+      description: Create a new product with the provided details
+      parameters:
+      - description: Product object
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/models.Product'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create a new product
+      tags:
+      - products
+  /api/v1/products/:product_id/media:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all media files for a specific product
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Media list
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get media by product
+      tags:
+      - media
+  /api/v1/products/:product_id/media/:media_id/primary:
+    put:
+      consumes:
+      - application/json
+      description: Set a media item as the primary image for a product
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      - description: Media ID
+        in: path
+        name: media_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Media or product not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Set primary media
+      tags:
+      - media
+  /api/v1/products/{id}:
+    delete:
+      description: Delete a product by ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete product
+      tags:
+      - products
+    get:
+      description: Retrieve a single product by its ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get product by ID
+      tags:
+      - products
+    put:
+      consumes:
+      - application/json
+      description: Update an existing product by ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Product object
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/models.Product'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update product
+      tags:
+      - products
+  /api/v1/products/{id}/media:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all media files for a specific product
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Media list
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get product media
+      tags:
+      - products
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload an image file for a product
+      parameters:
+      - description: Product ID
+        in: formData
+        name: product_id
+        required: true
+        type: integer
+      - description: Image file
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Position
+        in: formData
+        name: position
+        type: integer
+      - description: Is primary
+        in: formData
+        name: is_primary
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Upload response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Product not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Upload product media
+      tags:
+      - products
+  /api/v1/products/{id}/stock:
+    patch:
+      consumes:
+      - application/json
+      description: Update the stock quantity for a product
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Stock update object
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update product stock
+      tags:
+      - products
+  /api/v1/products/{product_id}/variants:
+    get:
+      description: Retrieve all variants for a specific product
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get variants by product ID
+      tags:
+      - variants
+  /api/v1/products/bestsellers:
+    get:
+      description: Retrieve best-selling products based on sales count
+      parameters:
+      - default: 10
+        description: Number of products to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get best sellers
+      tags:
+      - products
+  /api/v1/products/category/{category}:
+    get:
+      description: Retrieve products filtered by category
+      parameters:
+      - description: Product category
+        in: path
+        name: category
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get products by category
+      tags:
+      - products
+  /api/v1/products/featured:
+    get:
+      description: Retrieve featured products based on views and sales
+      parameters:
+      - default: 10
+        description: Number of products to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get featured products
+      tags:
+      - products
+  /api/v1/products/search:
+    get:
+      description: Search for products by name, description, or brand
+      parameters:
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Search products
+      tags:
+      - products
+  /api/v1/products/slug/{slug}:
+    get:
+      description: Retrieve a single product by its slug
+      parameters:
+      - description: Product slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get product by slug
+      tags:
+      - products
+  /api/v1/shipping/calculate:
+    get:
+      consumes:
+      - application/json
+      description: Calculate shipping cost between shipper and receiver destination
+        using Komerce API. Supports both query parameters and JSON body.
+      parameters:
+      - description: Shipper destination ID (from destination search)
+        in: query
+        name: shipper_destination_id
+        required: true
+        type: string
+      - description: Receiver destination ID (from destination search)
+        in: query
+        name: receiver_destination_id
+        required: true
+        type: string
+      - description: Weight in kilograms
+        in: query
+        name: weight
+        required: true
+        type: number
+      - description: Item value in IDR
+        in: query
+        name: item_value
+        required: true
+        type: number
+      - description: 'COD option: ''yes'' or ''no'' (default: ''no'')'
+        in: query
+        name: cod
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Shipping cost calculation results with multiple courier options
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request - missing required parameters
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Calculate shipping cost
+      tags:
+      - shipping
+  /api/v1/shipping/destination/search:
+    get:
+      consumes:
+      - application/json
+      description: Search for destination by postal code, village, sub-district, or
+        district using Komerce API
+      parameters:
+      - description: Search keyword (e.g., 'jakarta', 'bandung')
+        in: query
+        name: keyword
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of matching destinations
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request - keyword is required
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Search destination
+      tags:
+      - shipping
+  /api/v1/variants:
+    post:
+      consumes:
+      - application/json
+      description: Create a new product variant with the provided details
+      parameters:
+      - description: Variant object
+        in: body
+        name: variant
+        required: true
+        schema:
+          $ref: '#/definitions/models.ProductVariant'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create a new variant
+      tags:
+      - variants
+  /api/v1/variants/{id}:
+    delete:
+      description: Delete a variant by ID
+      parameters:
+      - description: Variant ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete variant
+      tags:
+      - variants
+    get:
+      description: Retrieve a single variant by its ID
+      parameters:
+      - description: Variant ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get variant by ID
+      tags:
+      - variants
+    put:
+      consumes:
+      - application/json
+      description: Update an existing variant by ID
+      parameters:
+      - description: Variant ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Variant object
+        in: body
+        name: variant
+        required: true
+        schema:
+          $ref: '#/definitions/models.ProductVariant'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update variant
+      tags:
+      - variants
+  /api/v1/variants/{id}/stock:
+    patch:
+      consumes:
+      - application/json
+      description: Update the stock quantity for a variant
+      parameters:
+      - description: Variant ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Stock update object
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update variant stock
+      tags:
+      - variants
+  /api/v1/variants/sku/{sku}:
+    get:
+      description: Retrieve a single variant by its SKU
+      parameters:
+      - description: Variant SKU
+        in: path
+        name: sku
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get variant by SKU
+      tags:
+      - variants
+  /api/v1/whatsapp/order-created/{order_id}:
+    get:
+      consumes:
+      - application/json
+      description: Send notification when order is created
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Send order created notification
+      tags:
+      - whatsapp
+  /api/v1/whatsapp/payment-success/{order_id}:
+    get:
+      consumes:
+      - application/json
+      description: Send notification when payment is successful
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Send payment success notification
+      tags:
+      - whatsapp
+  /api/v1/whatsapp/send:
+    post:
+      consumes:
+      - application/json
+      description: Send a message to a WhatsApp number
+      parameters:
+      - description: Phone number in E.164 format
+        in: query
+        name: phoneNumber
+        required: true
+        type: string
+      - description: Message content
+        in: body
+        name: message
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Send WhatsApp message
+      tags:
+      - whatsapp
+  /api/v1/whatsapp/status:
+    get:
+      consumes:
+      - application/json
+      description: Get current status of WhatsApp service
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Status response
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get WhatsApp status
+      tags:
+      - whatsapp
+  /api/v1/whatsapp/test:
+    post:
+      consumes:
+      - application/json
+      description: Send a test message to verify WhatsApp integration
+      parameters:
+      - description: Phone number in E.164 format
+        in: query
+        name: phoneNumber
+        required: true
+        type: string
+      - description: Message content
+        in: body
+        name: message
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Send test WhatsApp message
+      tags:
+      - whatsapp
+  /api/v1/whatsapp/webhook:
+    post:
+      consumes:
+      - application/json
+      description: Handle incoming webhook events from WhatsApp
+      parameters:
+      - description: Webhook data
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success response
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Process WhatsApp webhook
+      tags:
+      - whatsapp
+  /api/v1/whatsapp/webhook-url:
+    get:
+      consumes:
+      - application/json
+      description: Get the webhook URL for WhatsApp
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Webhook URL response
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get WhatsApp webhook URL
+      tags:
+      - whatsapp
+  /komerce/orders:
+    post:
+      consumes:
+      - application/json
+      description: Create a new shipping order
+      parameters:
+      - description: Create order request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.KomerceCreateOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create order
+      tags:
+      - komerce
+  /komerce/orders/:order_no:
+    get:
+      consumes:
+      - application/json
+      description: Get order detail by order number
+      parameters:
+      - description: Order number
+        in: path
+        name: order_no
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get order detail
+      tags:
+      - komerce
+  /komerce/orders/cancel:
+    put:
+      consumes:
+      - application/json
+      description: Cancel an order by order number
+      parameters:
+      - description: Cancel order request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CancelOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Cancel order
+      tags:
+      - komerce
+  /komerce/orders/print-label:
+    post:
+      consumes:
+      - application/json
+      description: Generate print label for order
+      parameters:
+      - description: Order number
+        in: query
+        name: order_no
+        required: true
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Print label
+      tags:
+      - komerce
+  /komerce/orders/track:
+    get:
+      consumes:
+      - application/json
+      description: Track order by shipping provider and airway bill
+      parameters:
+      - description: Shipping provider
+        in: query
+        name: shipping
+        required: true
+        type: string
+      - description: Airway bill number
+        in: query
+        name: airway_bill
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Track order
+      tags:
+      - komerce
+  /komerce/pickup:
+    post:
+      consumes:
+      - application/json
+      description: Request pickup for orders
+      parameters:
+      - description: Pickup request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RequestPickupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Request pickup
+      tags:
+      - komerce
+  /swagger/index.html:
+    get:
+      description: Get Swagger UI for API documentation
+      responses:
+        "200":
+          description: Swagger UI
+          schema:
+            type: string
+      summary: Show Swagger UI
+      tags:
+      - Documentation
+swagger: "2.0"

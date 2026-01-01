@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"gorm.io/gorm"
 	"github.com/karima-store/internal/models"
+	"gorm.io/gorm"
 )
 
 type ProductRepository interface {
@@ -21,6 +21,7 @@ type ProductRepository interface {
 	GetByCategory(category models.ProductCategory, limit, offset int) ([]models.Product, int64, error)
 	GetFeatured(limit int) ([]models.Product, error)
 	GetBestSellers(limit int) ([]models.Product, error)
+	WithTx(tx *gorm.DB) ProductRepository
 }
 
 type productRepository struct {
@@ -31,13 +32,17 @@ func NewProductRepository(db *gorm.DB) ProductRepository {
 	return &productRepository{db: db}
 }
 
+func (r *productRepository) WithTx(tx *gorm.DB) ProductRepository {
+	return &productRepository{db: tx}
+}
+
 func (r *productRepository) Create(product *models.Product) error {
 	return r.db.Create(product).Error
 }
 
 func (r *productRepository) GetByID(id uint) (*models.Product, error) {
 	var product models.Product
-	err := r.db.Preload("Images").Preload("Variants").First(&product, id).Error
+	err := r.db.Preload("Media").Preload("Variants").First(&product, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +51,7 @@ func (r *productRepository) GetByID(id uint) (*models.Product, error) {
 
 func (r *productRepository) GetBySlug(slug string) (*models.Product, error) {
 	var product models.Product
-	err := r.db.Preload("Images").Preload("Variants").Where("slug = ?", slug).First(&product).Error
+	err := r.db.Preload("Media").Preload("Variants").Where("slug = ?", slug).First(&product).Error
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +86,7 @@ func (r *productRepository) GetAll(limit, offset int, filters map[string]interfa
 	}
 
 	// Get products with pagination
-	err := query.Preload("Images").Preload("Variants").
+	err := query.Preload("Media").Preload("Variants").
 		Order("created_at DESC").
 		Limit(limit).
 		Offset(offset).
@@ -124,7 +129,7 @@ func (r *productRepository) Search(query string, limit, offset int) ([]models.Pr
 		return nil, 0, err
 	}
 
-	err := r.db.Preload("Images").
+	err := r.db.Preload("Media").
 		Where("LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR LOWER(brand) LIKE ?",
 			searchQuery, searchQuery, searchQuery).
 		Order("created_at DESC").
@@ -145,7 +150,7 @@ func (r *productRepository) GetByCategory(category models.ProductCategory, limit
 		return nil, 0, err
 	}
 
-	err := query.Preload("Images").
+	err := query.Preload("Media").
 		Order("created_at DESC").
 		Limit(limit).
 		Offset(offset).
@@ -156,7 +161,7 @@ func (r *productRepository) GetByCategory(category models.ProductCategory, limit
 
 func (r *productRepository) GetFeatured(limit int) ([]models.Product, error) {
 	var products []models.Product
-	err := r.db.Preload("Images").
+	err := r.db.Preload("Media").
 		Where("status = ?", models.StatusAvailable).
 		Order("view_count DESC, sold_count DESC").
 		Limit(limit).
@@ -166,7 +171,7 @@ func (r *productRepository) GetFeatured(limit int) ([]models.Product, error) {
 
 func (r *productRepository) GetBestSellers(limit int) ([]models.Product, error) {
 	var products []models.Product
-	err := r.db.Preload("Images").
+	err := r.db.Preload("Media").
 		Where("status = ?", models.StatusAvailable).
 		Order("sold_count DESC").
 		Limit(limit).

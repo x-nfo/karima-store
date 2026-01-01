@@ -1,9 +1,14 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
 	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/karima-store/internal/database"
 	"github.com/karima-store/internal/services"
 )
 
@@ -398,7 +403,7 @@ func (h *PricingHandler) GetPricingInfo(c *fiber.Ctx) error {
 	cacheKey := fmt.Sprintf("pricing:%d", productID)
 
 	// Check cache first
-	val, err := h.redisClient.Get(c.Context(), cacheKey).Result()
+	val, err := h.redisClient.Get(c.Context(), cacheKey)
 	if err == nil {
 		// Cache hit - parse and return
 		var cachedData map[string]interface{}
@@ -449,7 +454,7 @@ func (h *PricingHandler) GetPricingInfo(c *fiber.Ctx) error {
 	}
 
 	// Store in cache with 1 hour expiration
-	if err := h.redisClient.Set(c.Context(), cacheKey, response, 1*time.Hour).Err(); err != nil {
+	if err := h.redisClient.Set(c.Context(), cacheKey, response, 1*time.Hour); err != nil {
 		log.Printf("Failed to cache pricing data: %v", err)
 	}
 

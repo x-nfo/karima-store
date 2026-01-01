@@ -1,12 +1,15 @@
 package services
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"gorm.io/gorm"
+	"github.com/karima-store/internal/database"
 	"github.com/karima-store/internal/models"
 	"github.com/karima-store/internal/repository"
 )
@@ -29,12 +32,14 @@ type ProductService interface {
 type productService struct {
 	productRepo repository.ProductRepository
 	variantRepo repository.VariantRepository
+	redis       *database.Redis
 }
 
-func NewProductService(productRepo repository.ProductRepository, variantRepo repository.VariantRepository) ProductService {
+func NewProductService(productRepo repository.ProductRepository, variantRepo repository.VariantRepository, redis *database.Redis) ProductService {
 	return &productService{
 		productRepo: productRepo,
 		variantRepo: variantRepo,
+		redis:       redis,
 	}
 }
 
@@ -66,16 +71,38 @@ func (s *productService) CreateProduct(product *models.Product) error {
 		return errors.New("product with this slug already exists")
 	}
 
-	return s.productRepo.Create(product)
+	if err := s.productRepo.Create(product); err != nil {
+		return err
+	}
+
+	// Invalidate list caches
+	ctx := context.Background()
+	_ = s.redis.DeleteByPattern(ctx, "products:*")
+
+	return nil
 }
 
 func (s *productService) GetProductByID(id uint) (*models.Product, error) {
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("product:id:%d", id)
+
+	// Try to get from cache
+	var cachedProduct models.Product
+	if err := s.redis.GetJSON(ctx, cacheKey, &cachedProduct); err == nil {
+		return &cachedProduct, nil
+	}
+
 	product, err := s.productRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("product not found")
 		}
 		return nil, err
+	}
+
+	// Store in cache for 1 hour
+	if err := s.redis.SetJSON(ctx, cacheKey, product, 1*time.Hour); err != nil {
+		fmt.Printf("Failed to cache product ID %d: %v\n", id, err)
 	}
 
 	// Increment view count
@@ -85,12 +112,26 @@ func (s *productService) GetProductByID(id uint) (*models.Product, error) {
 }
 
 func (s *productService) GetProductBySlug(slug string) (*models.Product, error) {
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("product:slug:%s", slug)
+
+	// Try to get from cache
+	var cachedProduct models.Product
+	if err := s.redis.GetJSON(ctx, cacheKey, &cachedProduct); err == nil {
+		return &cachedProduct, nil
+	}
+
 	product, err := s.productRepo.GetBySlug(slug)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("product not found")
 		}
 		return nil, err
+	}
+
+	// Store in cache for 1 hour
+	if err := s.redis.SetJSON(ctx, cacheKey, product, 1*time.Hour); err != nil {
+		fmt.Printf("Failed to cache product slug %s: %v\n", slug, err)
 	}
 
 	// Increment view count
@@ -108,7 +149,32 @@ func (s *productService) GetProducts(limit, offset int, filters map[string]inter
 		offset = 0
 	}
 
-	return s.productRepo.GetAll(limit, offset, filters)
+	// Cache key
+	filterBytes, _ := json.Marshal(filters)
+	cacheKey := fmt.Sprintf("products:list:limit:%d:offset:%d:filters:%s", limit, offset, string(filterBytes))
+
+	// Try to get from cache
+	type CachedResult struct {
+		Products []models.Product
+		Total    int64
+	}
+	var cachedResult CachedResult
+	ctx := context.Background()
+	if err := s.redis.GetJSON(ctx, cacheKey, &cachedResult); err == nil {
+		return cachedResult.Products, cachedResult.Total, nil
+	}
+
+	products, total, err := s.productRepo.GetAll(limit, offset, filters)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Store in cache for 30 minutes
+	if err := s.redis.SetJSON(ctx, cacheKey, CachedResult{Products: products, Total: total}, 30*time.Minute); err != nil {
+		fmt.Printf("Failed to cache product list: %v\n", err)
+	}
+
+	return products, total, nil
 }
 
 func (s *productService) UpdateProduct(id uint, product *models.Product) error {
@@ -129,12 +195,27 @@ func (s *productService) UpdateProduct(id uint, product *models.Product) error {
 	// Ensure ID is set
 	product.ID = id
 
-	return s.productRepo.Update(product)
+	if err := s.productRepo.Update(product); err != nil {
+		return err
+	}
+
+	// Invalidate cache
+	ctx := context.Background()
+	_ = s.redis.Delete(ctx, fmt.Sprintf("product:id:%d", id))
+	_ = s.redis.Delete(ctx, fmt.Sprintf("product:slug:%s", existingProduct.Slug)) // Old slug
+	if product.Slug != "" && product.Slug != existingProduct.Slug {
+		_ = s.redis.Delete(ctx, fmt.Sprintf("product:slug:%s", product.Slug)) // New slug (just in case)
+	}
+	
+	// Invalidate list caches
+	_ = s.redis.DeleteByPattern(ctx, "products:*")
+
+	return nil
 }
 
 func (s *productService) DeleteProduct(id uint) error {
 	// Check if product exists
-	_, err := s.productRepo.GetByID(id)
+	existingProduct, err := s.productRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("product not found")
@@ -142,7 +223,19 @@ func (s *productService) DeleteProduct(id uint) error {
 		return err
 	}
 
-	return s.productRepo.Delete(id)
+	if err := s.productRepo.Delete(id); err != nil {
+		return err
+	}
+
+	// Invalidate cache
+	ctx := context.Background()
+	_ = s.redis.Delete(ctx, fmt.Sprintf("product:id:%d", id))
+	_ = s.redis.Delete(ctx, fmt.Sprintf("product:slug:%s", existingProduct.Slug))
+
+	// Invalidate list caches
+	_ = s.redis.DeleteByPattern(ctx, "products:*")
+
+	return nil
 }
 
 func (s *productService) UpdateProductStock(id uint, quantity int) error {
@@ -161,7 +254,19 @@ func (s *productService) UpdateProductStock(id uint, quantity int) error {
 		return errors.New("insufficient stock")
 	}
 
-	return s.productRepo.UpdateStock(id, quantity)
+	if err := s.productRepo.UpdateStock(id, quantity); err != nil {
+		return err
+	}
+
+	// Invalidate cache
+	ctx := context.Background()
+	_ = s.redis.Delete(ctx, fmt.Sprintf("product:id:%d", id))
+	_ = s.redis.Delete(ctx, fmt.Sprintf("product:slug:%s", product.Slug))
+
+	// Invalidate list caches
+	_ = s.redis.DeleteByPattern(ctx, "products:*")
+
+	return nil
 }
 
 func (s *productService) SearchProducts(query string, limit, offset int) ([]models.Product, int64, error) {
@@ -203,7 +308,31 @@ func (s *productService) GetProductsByCategory(category models.ProductCategory, 
 		offset = 0
 	}
 
-	return s.productRepo.GetByCategory(category, limit, offset)
+	// Cache key
+	cacheKey := fmt.Sprintf("products:category:%s:limit:%d:offset:%d", category, limit, offset)
+
+	// Try to get from cache
+	type CachedResult struct {
+		Products []models.Product
+		Total    int64
+	}
+	var cachedResult CachedResult
+	ctx := context.Background()
+	if err := s.redis.GetJSON(ctx, cacheKey, &cachedResult); err == nil {
+		return cachedResult.Products, cachedResult.Total, nil
+	}
+
+	products, total, err := s.productRepo.GetByCategory(category, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Store in cache for 30 minutes
+	if err := s.redis.SetJSON(ctx, cacheKey, CachedResult{Products: products, Total: total}, 30*time.Minute); err != nil {
+		fmt.Printf("Failed to cache category products: %v\n", err)
+	}
+
+	return products, total, nil
 }
 
 func (s *productService) GetFeaturedProducts(limit int) ([]models.Product, error) {
@@ -211,7 +340,27 @@ func (s *productService) GetFeaturedProducts(limit int) ([]models.Product, error
 		limit = 10
 	}
 
-	return s.productRepo.GetFeatured(limit)
+	// Cache key
+	cacheKey := fmt.Sprintf("products:featured:limit:%d", limit)
+
+	// Try to get from cache
+	var cachedProducts []models.Product
+	ctx := context.Background()
+	if err := s.redis.GetJSON(ctx, cacheKey, &cachedProducts); err == nil {
+		return cachedProducts, nil
+	}
+
+	products, err := s.productRepo.GetFeatured(limit)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store in cache for 30 minutes
+	if err := s.redis.SetJSON(ctx, cacheKey, products, 30*time.Minute); err != nil {
+		fmt.Printf("Failed to cache featured products: %v\n", err)
+	}
+
+	return products, nil
 }
 
 func (s *productService) GetBestSellers(limit int) ([]models.Product, error) {
@@ -219,7 +368,27 @@ func (s *productService) GetBestSellers(limit int) ([]models.Product, error) {
 		limit = 10
 	}
 
-	return s.productRepo.GetBestSellers(limit)
+	// Cache key
+	cacheKey := fmt.Sprintf("products:bestsellers:limit:%d", limit)
+
+	// Try to get from cache
+	var cachedProducts []models.Product
+	ctx := context.Background()
+	if err := s.redis.GetJSON(ctx, cacheKey, &cachedProducts); err == nil {
+		return cachedProducts, nil
+	}
+
+	products, err := s.productRepo.GetBestSellers(limit)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store in cache for 30 minutes
+	if err := s.redis.SetJSON(ctx, cacheKey, products, 30*time.Minute); err != nil {
+		fmt.Printf("Failed to cache best sellers: %v\n", err)
+	}
+
+	return products, nil
 }
 
 func (s *productService) GenerateSlug(name string) string {

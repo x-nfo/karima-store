@@ -16,7 +16,6 @@ import (
 	"github.com/karima-store/internal/handlers"
 	"github.com/karima-store/internal/komerce"
 	"github.com/karima-store/internal/middleware"
-	"github.com/karima-store/internal/rajaongkir"
 	"github.com/karima-store/internal/repository"
 	"github.com/karima-store/internal/routes"
 	"github.com/karima-store/internal/services"
@@ -79,17 +78,16 @@ func main() {
 	shippingZoneRepo := repository.NewShippingZoneRepository(db.DB())
 	mediaRepo := repository.NewMediaRepository(db.DB())
 	orderRepo := repository.NewOrderRepository(db.DB())
+	stockLogRepo := repository.NewStockLogRepository(db.DB())
 
 	// Initialize services
-	productService := services.NewProductService(productRepo, variantRepo)
+	productService := services.NewProductService(productRepo, variantRepo, redis)
+	orderService := services.NewOrderService(orderRepo) // Added OrderService
 	variantService := services.NewVariantService(variantRepo, productRepo)
 	categoryService := services.NewCategoryService(categoryRepo)
 	pricingService := services.NewPricingService(productRepo, variantRepo, flashSaleRepo, couponRepo, shippingZoneRepo)
 	mediaService := services.NewMediaService(mediaRepo, productRepo, cfg)
-
-	// Initialize RajaOngkir client
-	rajaongkirClient := rajaongkir.NewClient(cfg.RajaOngkirAPIKey, cfg.RajaOngkirBaseURL)
-	shippingService := services.NewShippingService(rajaongkirClient)
+	notificationService := services.NewNotificationService(db, redis, cfg)
 
 	// Initialize Komerce client
 	komerceClient := komerce.NewClient(cfg.KomerceAPIKey, cfg.KomerceBaseURL)
@@ -97,27 +95,27 @@ func main() {
 
 	// Midtrans configuration
 	midtransConfig := &services.MidtransConfig{
-		ServerKey:   getEnv("MIDTRANS_SERVER_KEY", ""),
-		ClientKey:   getEnv("MIDTRANS_CLIENT_KEY", ""),
-		APIBaseURL:  getEnv("MIDTRANS_API_BASE_URL", "https://app.sandbox.midtrans.com/snap/v1"),
+		ServerKey:    getEnv("MIDTRANS_SERVER_KEY", ""),
+		ClientKey:    getEnv("MIDTRANS_CLIENT_KEY", ""),
+		APIBaseURL:   getEnv("MIDTRANS_API_BASE_URL", "https://app.sandbox.midtrans.com/snap/v1"),
 		IsProduction: getEnvAsBool("MIDTRANS_IS_PRODUCTION", false),
 	}
-	checkoutService := services.NewCheckoutService(orderRepo, productRepo, variantRepo, pricingService, midtransConfig)
+	checkoutService := services.NewCheckoutService(db, orderRepo, productRepo, variantRepo, stockLogRepo, pricingService, notificationService, midtransConfig)
 
 	// Initialize handlers
 	productHandler := handlers.NewProductHandler(productService, mediaService)
 	variantHandler := handlers.NewVariantHandler(variantService)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
-	pricingHandler := handlers.NewPricingHandler(pricingService)
+	pricingHandler := handlers.NewPricingHandler(pricingService, redis)
 	mediaHandler := handlers.NewMediaHandler(mediaService)
 	checkoutHandler := handlers.NewCheckoutHandler(checkoutService)
-	shippingHandler := handlers.NewShippingHandler(shippingService)
 	komerceHandler := handlers.NewKomerceHandler(komerceService)
+	orderHandler := handlers.NewOrderHandler(orderService)
+	whatsappHandler := handlers.NewWhatsAppHandler(notificationService)
 	swaggerHandler := handlers.NewSwaggerHandler()
 
 	// Setup routes
-	r := routes.NewRoutes(app, authMiddleware, productHandler, variantHandler, categoryHandler, pricingHandler, mediaHandler, checkoutHandler, shippingHandler, komerceHandler, swaggerHandler)
-	r.Setup()
+	routes.RegisterRoutes(app, authMiddleware.Authenticate(), productHandler, variantHandler, categoryHandler, pricingHandler, mediaHandler, checkoutHandler, komerceHandler, orderHandler, whatsappHandler, swaggerHandler)
 
 	// Health check endpoint
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -140,11 +138,11 @@ func main() {
 		}
 
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"status":     "ok",
-			"database":   "connected",
-			"redis":      "connected",
+			"status":      "ok",
+			"database":    "connected",
+			"redis":       "connected",
 			"environment": cfg.AppEnv,
-			"timestamp":  time.Now().Format(time.RFC3339),
+			"timestamp":   time.Now().Format(time.RFC3339),
 		})
 	})
 

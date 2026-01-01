@@ -1,267 +1,266 @@
 package services
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"log"
-	"time"
+	"sync"
 
 	"github.com/karima-store/internal/config"
 	"github.com/karima-store/internal/database"
+	"github.com/karima-store/internal/fonnte"
 	"github.com/karima-store/internal/models"
-	"github.com/karima-store/internal/repository"
-	"github.com/karima-store/internal/utils"
-	"github.com/whatsapigo/whatsapigo"
 )
 
 // NotificationService handles all notification-related operations
 type NotificationService struct {
-	db *database.DB
-	redis *database.Redis
+	db           *database.PostgreSQL
+	redis        *database.Redis
+	fonnteClient *fonnte.Client
+	cfg          *config.Config
 }
 
 // NewNotificationService creates a new notification service instance
-func NewNotificationService(db *database.DB, redis *database.Redis) *NotificationService {
+func NewNotificationService(db *database.PostgreSQL, redis *database.Redis, cfg *config.Config) *NotificationService {
+	var fonnteClient *fonnte.Client
+	if cfg.FonnteToken != "" {
+		fonnteClient = fonnte.NewClient(cfg.FonnteToken, cfg.FonnteURL)
+	}
+
 	return &NotificationService{
-		db:    db,
-		redis: redis,
+		db:           db,
+		redis:        redis,
+		fonnteClient: fonnteClient,
+		cfg:          cfg,
 	}
 }
 
-// SendWhatsAppMessage sends a message via WhatsApp Gateway API
-func (s *NotificationService) SendWhatsAppMessage(c *models.Order, message string) error {
-	// Get WhatsApp configuration from environment
-	config := config.GetConfig()
+func (s *NotificationService) GetDB() interface{} {
+	return s.db.DB()
+}
 
-	// Create WhatsApp client
-	client := whatsapigo.NewClient(
-		whatsapigo.WithAPIKey(config.WhatsAppAPIKey),
-		whatsapigo.WithBaseURL(config.WhatsAppBaseURL),
-	)
-
-	// Prepare message
-	messageData := map[string]interface{}{
-		"to":       c.UserID,
-		"message":  message,
-		"reference": c.OrderNumber,
+// sendWhatsAppAsync sends WhatsApp message asynchronously using goroutine
+func (s *NotificationService) sendWhatsAppAsync(phoneNumber, message string, wg *sync.WaitGroup) {
+	if wg != nil {
+		defer wg.Done()
 	}
 
-	// Send message
-	resp, err := client.SendMessage(context.Background(), messageData)
+	if s.fonnteClient == nil {
+		log.Printf("[WhatsApp] Fonnte client not configured, skipping message to %s", phoneNumber)
+		return
+	}
+
+	// Format phone number (ensure 628xxx format)
+	formattedPhone := formatPhoneNumber(phoneNumber)
+
+	resp, err := s.fonnteClient.SendMessage(formattedPhone, message)
 	if err != nil {
-		log.Printf("Failed to send WhatsApp message: %v", err)
+		log.Printf("[WhatsApp] Failed to send message to %s: %v", formattedPhone, err)
+		return
+	}
+
+	if resp.Status {
+		log.Printf("[WhatsApp] Message sent successfully to %s (ID: %v)", formattedPhone, resp.ID)
+	} else {
+		log.Printf("[WhatsApp] Message failed to %s: %s", formattedPhone, resp.Detail)
+	}
+}
+
+// SendWhatsAppMessage sends a message via WhatsApp Gateway API (Fonnte)
+func (s *NotificationService) SendWhatsAppMessage(order *models.Order, message string, recipient string) error {
+	if s.fonnteClient == nil {
+		log.Printf("[WhatsApp] Fonnte client not configured")
+		return fmt.Errorf("fonnte client not configured")
+	}
+
+	// Format phone number
+	formattedPhone := formatPhoneNumber(recipient)
+
+	resp, err := s.fonnteClient.SendMessage(formattedPhone, message)
+	if err != nil {
 		return fmt.Errorf("failed to send WhatsApp message: %w", err)
 	}
 
-	// Save notification to database
-	notification := &models.Notification{
-		OrderID:     c.ID,
-		OrderNumber: c.OrderNumber,
-		RecipientID: c.UserID,
-		Message:     message,
-		Status:      "sent",
-		Type:        "whatsapp",
-		CreatedAt:   time.Now(),
+	if !resp.Status {
+		return fmt.Errorf("WhatsApp message failed: %s", resp.Detail)
 	}
 
-	if err := repository.NewNotificationRepository(s.db.DB()).Create(notification); err != nil {
-		log.Printf("Failed to save notification record: %v", err)
-		return fmt.Errorf("failed to save notification record: %w", err)
-	}
-
+	log.Printf("[WhatsApp] Message sent to %s for order %s", formattedPhone, order.OrderNumber)
 	return nil
 }
 
-// SendOrderCreatedNotification sends notification when order is created
+// SendOrderCreatedNotification sends notification when order is created (ASYNC)
 func (s *NotificationService) SendOrderCreatedNotification(order *models.Order) error {
-	// Get user from database
-	user, err := repository.NewUserRepository(s.db.DB()).GetByID(order.UserID)
-	if err != nil {
-		log.Printf("Failed to get user for order %d: %v", order.ID, err)
-		return fmt.Errorf("failed to get user: %w", err)
-	}
-
-	// Prepare message
-	message := fmt.Sprintf("Your order #%s has been successfully created. Thank you for shopping with us!", order.OrderNumber)
-
-	// Send notification asynchronously
-	go func() {
-		if err := s.SendWhatsAppMessage(order, message); err != nil {
-			log.Printf("Failed to send order created notification: %v", err)
-		}
-	}()
-
-	return nil
-}
-
-// SendPaymentSuccessNotification sends notification when payment is successful
-func (s *NotificationService) SendPaymentSuccessNotification(order *models.Order) error {
-	// Get user from database
-	user, err := repository.NewUserRepository(s.db.DB()).GetByID(order.UserID)
-	if err != nil {
-		log.Printf("Failed to get user for order %d: %v", order.ID, err)
-		return fmt.Errorf("failed to get user: %w", err)
-	}
-
-	// Prepare message
-	message := fmt.Sprintf("Payment for order #%s was successful. Your order is now confirmed.", order.OrderNumber)
-
-	// Send notification asynchronously
-	go func() {
-		if err := s.SendWhatsAppMessage(order, message); err != nil {
-			log.Printf("Failed to send payment success notification: %v", err)
-		}
-	}()
-
-	return nil
-}
-
-// SendWhatsAppWebhook handles WhatsApp webhook events
-func (s *NotificationService) SendWhatsAppWebhook(c *models.Order, event string) error {
-	// Get user from database
-	user, err := repository.NewUserRepository(s.db.DB()).GetByID(c.UserID)
-	if err != nil {
-		log.Printf("Failed to get user for order %d: %v", c.ID, err)
-		return fmt.Errorf("failed to get user: %w", err)
-	}
-
-	// Prepare message based on event
-	var message string
-	switch event {
-	case "payment_success":
-		message = fmt.Sprintf("Payment for order #%s was successful. Your order is now confirmed.", c.OrderNumber)
-	case "order_created":
-		message = fmt.Sprintf("Your order #%s has been successfully created. Thank you for shopping with us!", c.OrderNumber)
-	default:
-		message = fmt.Sprintf("Event %s occurred for order #%s", event, c.OrderNumber)
-	}
-
-	// Send notification asynchronously
-	go func() {
-		if err := s.SendWhatsAppMessage(c, message); err != nil {
-			log.Printf("Failed to send WhatsApp webhook notification: %v", err)
-		}
-	}()
-
-	return nil
-}
-
-// ProcessWhatsAppWebhook processes incoming webhook events
-func (s *NotificationService) ProcessWhatsAppWebhook(data map[string]interface{}) error {
-	// Parse incoming webhook data
-	var event string
-	if val, ok := data["event"].(string); ok {
-		event = val
-	}
-
-	// Get order from database
-	orderNumber := data["reference"].(string)
-	order, err := repository.NewOrderRepository(s.db.DB()).GetByOrderNumber(orderNumber)
-	if err != nil {
-		log.Printf("Failed to get order by number %s: %v", orderNumber, err)
-		return fmt.Errorf("failed to get order: %w", err)
-	}
-
-	// Process based on event
-	switch event {
-	case "payment_success":
-		return s.SendPaymentSuccessNotification(order)
-	case "order_created":
-		return s.SendOrderCreatedNotification(order)
-	default:
-		log.Printf("Unknown WhatsApp event: %s", event)
+	if s.fonnteClient == nil {
+		log.Printf("[WhatsApp] Fonnte not configured, skipping order created notification for %s", order.OrderNumber)
 		return nil
 	}
+
+	// Build message
+	message := fmt.Sprintf(
+		"🛍️ *Pesanan Baru!*\n\n"+
+			"Nomor Pesanan: *%s*\n"+
+			"Total: *Rp %s*\n\n"+
+			"Silakan selesaikan pembayaran Anda.\n\n"+
+			"Terima kasih telah berbelanja di Karima Store! 🙏",
+		order.OrderNumber,
+		formatCurrency(order.TotalAmount),
+	)
+
+	// Get customer phone from order
+	customerPhone := order.ShippingPhone
+	if customerPhone == "" {
+		log.Printf("[WhatsApp] No phone number for order %s", order.OrderNumber)
+		return nil
+	}
+
+	// Send asynchronously using goroutine
+	go s.sendWhatsAppAsync(customerPhone, message, nil)
+
+	log.Printf("[WhatsApp] Order created notification queued for order %s", order.OrderNumber)
+	return nil
 }
 
-// GetWhatsAppConfig retrieves WhatsApp configuration
-func (s *NotificationService) GetWhatsAppConfig() (config.Config, error) {
-	return config.GetConfig()
+// SendPaymentSuccessNotification sends notification when payment is successful (ASYNC)
+func (s *NotificationService) SendPaymentSuccessNotification(order *models.Order) error {
+	if s.fonnteClient == nil {
+		log.Printf("[WhatsApp] Fonnte not configured, skipping payment success notification for %s", order.OrderNumber)
+		return nil
+	}
+
+	// Build message
+	message := fmt.Sprintf(
+		"✅ *Pembayaran Berhasil!*\n\n"+
+			"Nomor Pesanan: *%s*\n"+
+			"Total: *Rp %s*\n\n"+
+			"Pesanan Anda sedang diproses dan akan segera dikirim.\n\n"+
+			"Terima kasih! 🙏",
+		order.OrderNumber,
+		formatCurrency(order.TotalAmount),
+	)
+
+	// Get customer phone
+	customerPhone := order.ShippingPhone
+	if customerPhone == "" {
+		log.Printf("[WhatsApp] No phone number for order %s", order.OrderNumber)
+		return nil
+	}
+
+	// Send asynchronously using goroutine
+	go s.sendWhatsAppAsync(customerPhone, message, nil)
+
+	log.Printf("[WhatsApp] Payment success notification queued for order %s", order.OrderNumber)
+	return nil
+}
+
+// SendShippingNotification sends notification when order is shipped (ASYNC)
+func (s *NotificationService) SendShippingNotification(order *models.Order, trackingNumber string) error {
+	if s.fonnteClient == nil {
+		return nil
+	}
+
+	message := fmt.Sprintf(
+		"📦 *Pesanan Dikirim!*\n\n"+
+			"Nomor Pesanan: *%s*\n"+
+			"Kurir: *%s*\n"+
+			"No. Resi: *%s*\n\n"+
+			"Lacak pesanan Anda untuk melihat status pengiriman.\n\n"+
+			"Terima kasih! 🙏",
+		order.OrderNumber,
+		order.ShippingProvider,
+		trackingNumber,
+	)
+
+	customerPhone := order.ShippingPhone
+	if customerPhone == "" {
+		return nil
+	}
+
+	go s.sendWhatsAppAsync(customerPhone, message, nil)
+	return nil
 }
 
 // GetWhatsAppStatus checks WhatsApp service status
 func (s *NotificationService) GetWhatsAppStatus() (string, error) {
-	config, err := s.GetWhatsAppConfig()
+	if s.fonnteClient == nil {
+		return "not_configured", nil
+	}
+
+	resp, err := s.fonnteClient.GetDeviceStatus()
 	if err != nil {
-		return "", fmt.Errorf("failed to get WhatsApp config: %w", err)
+		return "error", err
 	}
 
-	// Simple health check - check if API key is set
-	if config.WhatsAppAPIKey == "" {
-		return "unavailable", nil
+	if resp.Status {
+		return "connected", nil
 	}
-
-	return "available", nil
+	return "disconnected", nil
 }
 
 // SendTestWhatsAppMessage sends a test message to verify WhatsApp integration
 func (s *NotificationService) SendTestWhatsAppMessage(phoneNumber string, message string) error {
-	// Get WhatsApp configuration
-	config, err := s.GetWhatsAppConfig()
+	if s.fonnteClient == nil {
+		return fmt.Errorf("fonnte client not configured")
+	}
+
+	formattedPhone := formatPhoneNumber(phoneNumber)
+	resp, err := s.fonnteClient.SendMessage(formattedPhone, message)
 	if err != nil {
-		return fmt.Errorf("failed to get WhatsApp config: %w", err)
+		return err
 	}
 
-	// Create WhatsApp client
-	client := whatsapigo.NewClient(
-		whatsapigo.WithAPIKey(config.WhatsAppAPIKey),
-		whatsapigo.WithBaseURL(config.WhatsAppBaseURL),
-	)
-
-	// Prepare message
-	messageData := map[string]interface{}{
-		"to":       phoneNumber,
-		"message":  message,
-		"reference": "test",
+	if !resp.Status {
+		return fmt.Errorf("test message failed: %s", resp.Detail)
 	}
 
-	// Send message
-	resp, err := client.SendMessage(context.Background(), messageData)
-	if err != nil {
-		log.Printf("Failed to send test WhatsApp message: %v", err)
-		return fmt.Errorf("failed to send test message: %w", err)
-	}
+	log.Printf("[WhatsApp] Test message sent to %s", formattedPhone)
+	return nil
+}
 
+// ProcessWhatsAppWebhook handles WhatsApp webhook events
+func (s *NotificationService) ProcessWhatsAppWebhook(data map[string]interface{}) error {
+	log.Printf("[WhatsApp Webhook] Received: %v", data)
+	// Process webhook data as needed
 	return nil
 }
 
 // GetWhatsAppWebhookURL returns the webhook URL for WhatsApp
 func (s *NotificationService) GetWhatsAppWebhookURL() string {
-	config, err := s.GetWhatsAppConfig()
-	if err != nil {
-		return ""
-	}
-
-	return fmt.Sprintf("%s/api/v1/whatsapp/webhook", config.APIBaseURL)
+	return fmt.Sprintf("https://api.karimastore.com/api/v1/whatsapp/webhook")
 }
 
-// GetWhatsAppStatus returns the current status of WhatsApp service
-func (s *NotificationService) GetWhatsAppStatus() (string, error) {
-	config, err := s.GetWhatsAppConfig()
-	if err != nil {
-		return "", fmt.Errorf("failed to get WhatsApp config: %w", err)
+// Helper functions
+
+// formatPhoneNumber formats phone number to 628xxx format
+func formatPhoneNumber(phone string) string {
+	// Remove spaces and dashes
+	phone = removeNonDigits(phone)
+
+	// Convert 08xxx to 628xxx
+	if len(phone) > 0 && phone[0] == '0' {
+		phone = "62" + phone[1:]
 	}
 
-	// Check if API key is set
-	if config.WhatsAppAPIKey == "" {
-		return "unavailable", nil
+	// Ensure starts with 62
+	if len(phone) > 2 && phone[0:2] != "62" {
+		phone = "62" + phone
 	}
 
-	return "available", nil
+	return phone
 }
 
-// GetWhatsAppConfig returns WhatsApp configuration
-func (s *NotificationService) GetWhatsAppConfig() (config.Config, error) {
-	return config.GetConfig()
+// removeNonDigits removes non-digit characters from string
+func removeNonDigits(s string) string {
+	result := ""
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			result += string(r)
+		}
+	}
+	return result
 }
 
-// GetWhatsAppWebhookURL returns the webhook URL for WhatsApp
-func (s *NotificationService) GetWhatsAppWebhookURL() string {
-	config, err := s.GetWhatsAppConfig()
-	if err != nil {
-		return ""
-	}
-
-	return fmt.Sprintf("%s/api/v1/whatsapp/webhook", config.APIBaseURL)
+// formatCurrency formats number to Indonesian currency format
+func formatCurrency(amount float64) string {
+	// Simple formatting without external lib
+	return fmt.Sprintf("%.0f", amount)
 }

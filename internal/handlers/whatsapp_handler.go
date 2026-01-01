@@ -1,17 +1,13 @@
 package handlers
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"log"
-	"net/http"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/karima-store/internal/models"
 	"github.com/karima-store/internal/repository"
 	"github.com/karima-store/internal/services"
+	"gorm.io/gorm"
 )
 
 // WhatsAppHandler handles WhatsApp API endpoints
@@ -53,7 +49,7 @@ func (h *WhatsAppHandler) SendWhatsAppMessage(c *fiber.Ctx) error {
 	}
 
 	// Validate phone number format
-	if !utils.IsValidPhoneNumber(req.PhoneNumber) {
+	if len(req.PhoneNumber) < 10 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
 			"message": "Invalid phone number format",
@@ -62,7 +58,7 @@ func (h *WhatsAppHandler) SendWhatsAppMessage(c *fiber.Ctx) error {
 	}
 
 	// Send message
-	err := h.notificationService.SendWhatsAppMessage(&models.Order{}, req.Message)
+	err := h.notificationService.SendWhatsAppMessage(&models.Order{}, req.Message, req.PhoneNumber)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status":  "error",
@@ -110,7 +106,16 @@ func (h *WhatsAppHandler) SendOrderCreatedNotification(c *fiber.Ctx) error {
 	}
 
 	// Get order from database
-	order, err := repository.NewOrderRepository(h.notificationService.db.DB()).GetByID(uint(orderID))
+	db, ok := h.notificationService.GetDB().(*gorm.DB)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Database connection error",
+			"code":    500,
+		})
+	}
+	
+	order, err := repository.NewOrderRepository(db).GetByID(uint(orderID))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"status":  "error",
@@ -168,7 +173,16 @@ func (h *WhatsAppHandler) SendPaymentSuccessNotification(c *fiber.Ctx) error {
 	}
 
 	// Get order from database
-	order, err := repository.NewOrderRepository(h.notificationService.db.DB()).GetByID(uint(orderID))
+	db, ok := h.notificationService.GetDB().(*gorm.DB)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Database connection error",
+			"code":    500,
+		})
+	}
+
+	order, err := repository.NewOrderRepository(db).GetByID(uint(orderID))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"status":  "error",
@@ -286,7 +300,7 @@ func (h *WhatsAppHandler) SendTestWhatsAppMessage(c *fiber.Ctx) error {
 	}
 
 	// Validate phone number format
-	if !utils.IsValidPhoneNumber(phoneNumber) {
+	if len(phoneNumber) < 10 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
 			"message": "Invalid phone number format",

@@ -22,13 +22,15 @@ func NewKomerceHandler(komerceService services.KomerceService) *KomerceHandler {
 
 // SearchDestination godoc
 // @Summary Search destination
-// @Description Search for destination by postal code, village, sub-district, or district
-// @Tags komerce
+// @Description Search for destination by postal code, village, sub-district, or district using Komerce API
+// @Tags shipping
 // @Accept json
 // @Produce json
-// @Param keyword query string true "Search keyword"
-// @Success 200 {object} map[string]interface{}
-// @Router /komerce/destination/search [get]
+// @Param keyword query string true "Search keyword (e.g., 'jakarta', 'bandung')"
+// @Success 200 {object} map[string]interface{} "List of matching destinations"
+// @Failure 400 {object} map[string]interface{} "Bad request - keyword is required"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /api/v1/shipping/destination/search [get]
 func (h *KomerceHandler) SearchDestination(c *fiber.Ctx) error {
 	keyword := c.Query("keyword")
 
@@ -57,25 +59,26 @@ func (h *KomerceHandler) SearchDestination(c *fiber.Ctx) error {
 type CalculateShippingCostRequest struct {
 	ShipperDestinationID  string  `json:"shipper_destination_id"`
 	ReceiverDestinationID string  `json:"receiver_destination_id"`
-	Weight               float64 `json:"weight"`
-	ItemValue            int     `json:"item_value"`
-	COD                  string  `json:"cod"`
+	Weight                float64 `json:"weight"`
+	ItemValue             int     `json:"item_value"`
+	COD                   string  `json:"cod"`
 }
 
 // CalculateShippingCost godoc
 // @Summary Calculate shipping cost
-// @Description Calculate shipping cost between shipper and receiver destination
-// @Tags komerce
+// @Description Calculate shipping cost between shipper and receiver destination using Komerce API. Supports both query parameters and JSON body.
+// @Tags shipping
 // @Accept json
 // @Produce json
-// @Param request body CalculateShippingCostRequest false "Shipping cost request (JSON body)"
-// @Param shipper_destination_id query string false "Shipper destination ID"
-// @Param receiver_destination_id query string false "Receiver destination ID"
-// @Param weight query number false "Weight in kg"
-// @Param item_value query number false "Item value"
-// @Param cod query string false "COD option (yes/no)"
-// @Success 200 {object} map[string]interface{}
-// @Router /komerce/calculate [post]
+// @Param shipper_destination_id query string true "Shipper destination ID (from destination search)"
+// @Param receiver_destination_id query string true "Receiver destination ID (from destination search)"
+// @Param weight query number true "Weight in kilograms"
+// @Param item_value query number true "Item value in IDR"
+// @Param cod query string false "COD option: 'yes' or 'no' (default: 'no')"
+// @Success 200 {object} map[string]interface{} "Shipping cost calculation results with multiple courier options"
+// @Failure 400 {object} map[string]interface{} "Bad request - missing required parameters"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /api/v1/shipping/calculate [get]
 func (h *KomerceHandler) CalculateShippingCost(c *fiber.Ctx) error {
 	var req CalculateShippingCostRequest
 

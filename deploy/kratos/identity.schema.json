@@ -1,0 +1,46 @@
+{
+    "$id": "https://schemas.ory.sh/presets/kratos/identity.email.schema.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Person",
+    "type": "object",
+    "properties": {
+        "traits": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "format": "email",
+                    "title": "E-Mail",
+                    "minLength": 3,
+                    "network.ory.kratos.identity.v0.traits.identifier": "email",
+                    "network.ory.kratos.identity.v0.traits.verifiable_addresses": [
+                        {
+                            "via": "email"
+                        }
+                    ]
+                },
+                "name": {
+                    "type": "object",
+                    "properties": {
+                        "first": {
+                            "type": "string",
+                            "title": "First Name"
+                        },
+                        "last": {
+                            "type": "string",
+                            "title": "Last Name"
+                        }
+                    }
+                },
+                "phone": {
+                    "type": "string",
+                    "title": "Phone Number"
+                }
+            },
+            "required": [
+                "email"
+            ],
+            "additionalProperties": false
+        }
+    }
+}

@@ -14,6 +14,7 @@ type OrderRepository interface {
 	UpdateStatus(id uint, status models.OrderStatus) error
 	UpdatePaymentStatus(id uint, status models.PaymentStatus) error
 	Delete(id uint) error
+	WithTx(tx *gorm.DB) OrderRepository
 }
 
 type orderRepository struct {
@@ -22,6 +23,10 @@ type orderRepository struct {
 
 func NewOrderRepository(db *gorm.DB) OrderRepository {
 	return &orderRepository{db: db}
+}
+
+func (r *orderRepository) WithTx(tx *gorm.DB) OrderRepository {
+	return &orderRepository{db: tx}
 }
 
 func (r *orderRepository) Create(order *models.Order) error {

@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -52,6 +53,24 @@ func (r *Redis) Set(ctx context.Context, key string, value interface{}, expirati
 	return r.client.Set(ctx, key, value, expiration).Err()
 }
 
+// GetJSON retrieves a JSON value from Redis and unmarshals it into dest
+func (r *Redis) GetJSON(ctx context.Context, key string, dest interface{}) error {
+	val, err := r.client.Get(ctx, key).Result()
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal([]byte(val), dest)
+}
+
+// SetJSON marshals a value to JSON and stores it in Redis with an expiration time
+func (r *Redis) SetJSON(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	bytes, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return r.client.Set(ctx, key, bytes, expiration).Err()
+}
+
 // Delete removes a key from Redis
 func (r *Redis) Delete(ctx context.Context, keys ...string) error {
 	return r.client.Del(ctx, keys...).Err()
@@ -65,4 +84,28 @@ func (r *Redis) Exists(ctx context.Context, keys ...string) (int64, error) {
 // FlushDB clears the current database
 func (r *Redis) FlushDB(ctx context.Context) error {
 	return r.client.FlushDB(ctx).Err()
+}
+// DeleteByPattern deletes all keys matching a pattern
+func (r *Redis) DeleteByPattern(ctx context.Context, pattern string) error {
+	var cursor uint64
+	var keys []string
+	var err error
+
+	for {
+		keys, cursor, err = r.client.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return err
+		}
+
+		if len(keys) > 0 {
+			if err := r.client.Del(ctx, keys...).Err(); err != nil {
+				return err
+			}
+		}
+
+		if cursor == 0 {
+			break
+		}
+	}
+	return nil
 }
