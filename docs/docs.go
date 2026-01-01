@@ -3405,6 +3405,13 @@ const docTemplate = `{
         },
         "models.Product": {
             "type": "object",
+            "required": [
+                "category",
+                "name",
+                "price",
+                "sku",
+                "weight"
+            ],
             "properties": {
                 "brand": {
                     "description": "Attributes",
@@ -3418,7 +3425,8 @@ const docTemplate = `{
                 },
                 "compare_price": {
                     "description": "Original price (for discount display)",
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                 },
                 "created_at": {
                     "type": "string"
@@ -3432,7 +3440,9 @@ const docTemplate = `{
                 },
                 "discount": {
                     "description": "Discount percentage",
-                    "type": "number"
+                    "type": "number",
+                    "maximum": 100,
+                    "minimum": 0
                 },
                 "flash_sales": {
                     "type": "array",
@@ -3462,7 +3472,8 @@ const docTemplate = `{
                 },
                 "name": {
                     "description": "Basic Information",
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 3
                 },
                 "order_items": {
                     "type": "array",
@@ -3472,7 +3483,8 @@ const docTemplate = `{
                 },
                 "price": {
                     "description": "Pricing",
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                 },
                 "published_at": {
                     "description": "Timestamps",
@@ -3507,7 +3519,8 @@ const docTemplate = `{
                 },
                 "stock": {
                     "description": "Inventory",
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "thumbnail": {
                     "type": "string"

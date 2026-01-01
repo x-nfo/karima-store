@@ -1,3 +1,63 @@
+# --- Binaries & Build Artifacts ---
+bin/
+dist/
+main
+api
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+debug
+__debug_bin
+
+# --- Environment Context ---
+# Ignore all .env files (secrets)
 .env
+.env.local
+.env.development
+.env.test
+.env.production
+# BUT keep the example template
+!.env.example
+
+# --- IDEs & Editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Go Specific ---
+# Vendor directory (remove if you use vendoring, but usually ignored for modules)
+vendor/
+go.work
+go.work.sum
+# Test coverage reports
+coverage.out
+coverage.html
+profile.out
+
+# --- Docker & Local Data ---
+# Ignore local persistent data mapped in compose
+postgres-data/
+redis-data/
+kratos-data/
+meilisearch-data/
+
+# --- Uploads & Static Media ---
+# Ignore actual uploads but keep the directory structure if needed
+uploads/*
+!uploads/.gitkeep
+public/uploads/*
+!public/uploads/.gitkeep
+
+# --- Logs & Temp ---
+*.log
+tmp/
+monitor/
+
+# --- Project Specific (Preserved) ---
 docs/Progress_flows/*
 rest-client-testing/*

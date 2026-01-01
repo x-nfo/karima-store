@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/helmet"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/karima-store/internal/config"
@@ -19,11 +20,15 @@ import (
 	"github.com/karima-store/internal/repository"
 	"github.com/karima-store/internal/routes"
 	"github.com/karima-store/internal/services"
+	"github.com/karima-store/internal/utils"
 )
 
 func main() {
 	// Load configuration
 	cfg := config.Load()
+
+	// Validate critical configuration (production only, warnings only in dev)
+	validateConfiguration(cfg)
 
 	// Initialize database connections
 	db, err := database.NewPostgreSQL(cfg)
@@ -51,23 +56,23 @@ func main() {
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
 			}
-			return c.Status(code).JSON(fiber.Map{
-				"error": err.Error(),
-			})
+			return utils.SendError(c, code, err.Error(), nil)
 		},
 	})
 
 	// Global middleware
 	app.Use(logger.New(logger.Config{
-		Format:     "[${time}] ${status} - ${method} ${path} (${latency})\n",
+		Format:     "[${time}] ${status} - ${method} ${path} (${latency})\\n",
 		TimeFormat: "2006-01-02 15:04:05",
 		TimeZone:   "Asia/Jakarta",
 	}))
 	app.Use(recover.New())
+	app.Use(helmet.New()) // Security Headers
 	app.Use(middleware.CORS(cfg.CORSOrigin))
+	app.Use(middleware.NewRateLimiter(cfg))
 
-	// Initialize auth middleware
-	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
+	// Initialize Ory Kratos middleware for authentication
+	authMiddleware := middleware.NewKratosMiddleware(cfg.KratosPublicURL, cfg.KratosAdminURL)
 
 	// Initialize repositories
 	productRepo := repository.NewProductRepository(db.DB())
@@ -100,7 +105,18 @@ func main() {
 		APIBaseURL:   getEnv("MIDTRANS_API_BASE_URL", "https://app.sandbox.midtrans.com/snap/v1"),
 		IsProduction: getEnvAsBool("MIDTRANS_IS_PRODUCTION", false),
 	}
-	checkoutService := services.NewCheckoutService(db, orderRepo, productRepo, variantRepo, stockLogRepo, pricingService, notificationService, midtransConfig)
+
+	// Initialize checkout service with all dependencies
+	checkoutService := services.NewCheckoutService(
+		db,
+		orderRepo,
+		productRepo,
+		variantRepo,
+		stockLogRepo,
+		pricingService,
+		notificationService,
+		midtransConfig,
+	)
 
 	// Initialize handlers
 	productHandler := handlers.NewProductHandler(productService, mediaService)
@@ -110,30 +126,41 @@ func main() {
 	mediaHandler := handlers.NewMediaHandler(mediaService)
 	checkoutHandler := handlers.NewCheckoutHandler(checkoutService)
 	komerceHandler := handlers.NewKomerceHandler(komerceService)
-	orderHandler := handlers.NewOrderHandler(orderService)
+	orderHandler := handlers.NewOrderHandler(orderService) // Added OrderHandler
 	whatsappHandler := handlers.NewWhatsAppHandler(notificationService)
 	swaggerHandler := handlers.NewSwaggerHandler()
 
-	// Setup routes
-	routes.RegisterRoutes(app, authMiddleware.Authenticate(), productHandler, variantHandler, categoryHandler, pricingHandler, mediaHandler, checkoutHandler, komerceHandler, orderHandler, whatsappHandler, swaggerHandler)
+	// Register routes
+	routes.RegisterRoutes(
+		app,
+		authMiddleware,
+		productHandler,
+		variantHandler,
+		categoryHandler,
+		pricingHandler,
+		mediaHandler,
+		checkoutHandler,
+		komerceHandler,
+		orderHandler,
+		whatsappHandler,
+		swaggerHandler,
+	)
 
 	// Health check endpoint
 	app.Get("/health", func(c *fiber.Ctx) error {
-		// Check database connection
+		// Check database
 		if err := checkDatabase(db); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Database connection failed",
-				"details": err.Error(),
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"status":   "error",
+				"database": err.Error(),
 			})
 		}
 
-		// Check Redis connection
+		// Check Redis
 		if err := checkRedis(redis); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Redis connection failed",
-				"details": err.Error(),
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"status": "error",
+				"redis":  err.Error(),
 			})
 		}
 
@@ -153,8 +180,18 @@ func main() {
 	}
 
 	log.Printf("Starting Karima Store API on port %s (Environment: %s)", port, cfg.AppEnv)
-	if err := app.Listen(fmt.Sprintf(":%s", port)); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+
+	// Graceful shutdown setup (production) or direct start (development)
+	if cfg.AppEnv == "production" {
+		// Production: Enable graceful shutdown for clean resource cleanup
+		log.Println("Production mode: Graceful shutdown enabled")
+		startServerWithGracefulShutdown(app, port, cfg, db, redis)
+	} else {
+		// Development: Simple start (Ctrl+C works immediately, faster iteration)
+		log.Println("Development mode: Press Ctrl+C to stop server (immediate)")
+		if err := app.Listen(fmt.Sprintf(":%s", port)); err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
 	}
 }
 
@@ -169,7 +206,11 @@ func checkDatabase(db *database.PostgreSQL) error {
 		return fmt.Errorf("failed to get sql.DB: %w", err)
 	}
 
-	return sqlDB.PingContext(ctx)
+	if err := sqlDB.PingContext(ctx); err != nil {
+		return fmt.Errorf("database ping failed: %w", err)
+	}
+
+	return nil
 }
 
 func checkRedis(redis *database.Redis) error {
@@ -177,8 +218,7 @@ func checkRedis(redis *database.Redis) error {
 	defer cancel()
 
 	// Try to set and get a value
-	err := redis.Set(ctx, "health-check", "ok", 10*time.Second)
-	if err != nil {
+	if err := redis.Set(ctx, "health-check", "ok", 10*time.Second); err != nil {
 		return fmt.Errorf("redis set failed: %w", err)
 	}
 
@@ -192,6 +232,40 @@ func checkRedis(redis *database.Redis) error {
 	}
 
 	return nil
+}
+
+// validateConfiguration validates critical configuration based on environment
+func validateConfiguration(cfg *config.Config) {
+	if cfg.AppEnv == "production" {
+		// Strict validation for production
+		var errors []string
+
+		if cfg.DBPassword == "" || cfg.DBPassword == "secret" {
+			errors = append(errors, "DB_PASSWORD must be set and not default")
+		}
+		if cfg.RedisPassword == "" {
+			log.Println("⚠️  WARNING: REDIS_PASSWORD not set (recommended for production)")
+		}
+		if cfg.JWTSecret == "" || cfg.JWTSecret == "super_secret_key" {
+			errors = append(errors, "JWT_SECRET must be set and not default")
+		}
+
+		if len(errors) > 0 {
+			log.Println("❌ Production configuration errors:")
+			for _, err := range errors {
+				log.Printf("  - %s", err)
+			}
+			log.Fatal("Fix configuration errors before running in production")
+		}
+
+		log.Println("✅ Production configuration validated")
+	} else {
+		// Development: Just warnings
+		log.Println("ℹ️  Development mode: Using relaxed configuration validation")
+		if cfg.DBPassword == "secret" || cfg.DBPassword == "lokal" {
+			log.Println("⚠️  Using default database password (OK for development)")
+		}
+	}
 }
 
 // Helper functions for environment variables

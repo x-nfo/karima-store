@@ -3394,6 +3394,13 @@
         },
         "models.Product": {
             "type": "object",
+            "required": [
+                "category",
+                "name",
+                "price",
+                "sku",
+                "weight"
+            ],
             "properties": {
                 "brand": {
                     "description": "Attributes",
@@ -3407,7 +3414,8 @@
                 },
                 "compare_price": {
                     "description": "Original price (for discount display)",
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                 },
                 "created_at": {
                     "type": "string"
@@ -3421,7 +3429,9 @@
                 },
                 "discount": {
                     "description": "Discount percentage",
-                    "type": "number"
+                    "type": "number",
+                    "maximum": 100,
+                    "minimum": 0
                 },
                 "flash_sales": {
                     "type": "array",
@@ -3451,7 +3461,8 @@
                 },
                 "name": {
                     "description": "Basic Information",
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 3
                 },
                 "order_items": {
                     "type": "array",
@@ -3461,7 +3472,8 @@
                 },
                 "price": {
                     "description": "Pricing",
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                 },
                 "published_at": {
                     "description": "Timestamps",
@@ -3496,7 +3508,8 @@
                 },
                 "stock": {
                     "description": "Inventory",
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "thumbnail": {
                     "type": "string"

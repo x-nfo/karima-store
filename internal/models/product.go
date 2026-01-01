@@ -32,20 +32,20 @@ type Product struct {
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 
 	// Basic Information
-	Name        string          `json:"name" gorm:"not null;size:200"`
-	Slug        string          `json:"slug" gorm:"uniqueIndex;not null;size:200"`
+	Name        string          `json:"name" gorm:"not null;size:200" validate:"required,min=3"`
+	Slug        string          `json:"slug" gorm:"uniqueIndex;not null;size:200" validate:"omitempty,lowercase"`
 	Description string          `json:"description" gorm:"type:text"`
-	Category    ProductCategory `json:"category" gorm:"not null;size:50"`
+	Category    ProductCategory `json:"category" gorm:"not null;size:50" validate:"required"`
 
 	// Pricing
-	Price        float64 `json:"price" gorm:"not null"`
-	ComparePrice float64 `json:"compare_price"` // Original price (for discount display)
-	Discount     float64 `json:"discount"`      // Discount percentage
+	Price        float64 `json:"price" gorm:"not null" validate:"required,gte=0"`
+	ComparePrice float64 `json:"compare_price" validate:"gte=0"`    // Original price (for discount display)
+	Discount     float64 `json:"discount" validate:"gte=0,lte=100"` // Discount percentage
 
 	// Inventory
-	Stock  int           `json:"stock" gorm:"default:0"`
+	Stock  int           `json:"stock" gorm:"default:0" validate:"gte=0"`
 	Status ProductStatus `json:"status" gorm:"not null;default:'available'"`
-	SKU    string        `json:"sku" gorm:"uniqueIndex;size:100"`
+	SKU    string        `json:"sku" gorm:"uniqueIndex;size:100" validate:"required"`
 
 	// Media
 	Media     []Media `json:"media,omitempty" gorm:"foreignKey:ProductID"`
@@ -56,8 +56,8 @@ type Product struct {
 	Color      string  `json:"color" gorm:"size:50"`
 	Size       string  `json:"size" gorm:"size:50"`
 	Material   string  `json:"material" gorm:"size:100"`
-	Weight     float64 `json:"weight"`                     // in kg
-	Dimensions string  `json:"dimensions" gorm:"size:100"` // LxWxH format
+	Weight     float64 `json:"weight" validate:"required,gt=0"` // in kg
+	Dimensions string  `json:"dimensions" gorm:"size:100"`      // LxWxH format
 
 	// SEO
 	MetaTitle       string `json:"meta_title" gorm:"size:200"`

@@ -20,6 +20,16 @@ func NewRedis(cfg *config.Config) (*Redis, error) {
 		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHost, cfg.RedisPort),
 		Password: cfg.RedisPassword,
 		DB:       0,
+		// Connection pool settings
+		PoolSize:        20,               // Maximum number of socket connections
+		MinIdleConns:    5,                // Minimum number of idle connections
+		MaxRetries:      3,                // Maximum number of retries before giving up
+		DialTimeout:     5 * time.Second,  // Dial timeout
+		ReadTimeout:     3 * time.Second,  // Read timeout
+		WriteTimeout:    3 * time.Second,  // Write timeout
+		PoolTimeout:     4 * time.Second,  // Time client waits for connection if all busy
+		ConnMaxIdleTime: 15 * time.Minute, // Close idle connections after 15 min
+		ConnMaxLifetime: 30 * time.Minute, // Rotate connections every 30 min
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -85,6 +95,7 @@ func (r *Redis) Exists(ctx context.Context, keys ...string) (int64, error) {
 func (r *Redis) FlushDB(ctx context.Context) error {
 	return r.client.FlushDB(ctx).Err()
 }
+
 // DeleteByPattern deletes all keys matching a pattern
 func (r *Redis) DeleteByPattern(ctx context.Context, pattern string) error {
 	var cursor uint64
@@ -108,4 +119,22 @@ func (r *Redis) DeleteByPattern(ctx context.Context, pattern string) error {
 		}
 	}
 	return nil
+}
+
+// HealthCheck pings Redis to verify connection health
+func (r *Redis) HealthCheck(ctx context.Context) error {
+	return r.client.Ping(ctx).Err()
+}
+
+// PoolStats returns Redis connection pool statistics
+func (r *Redis) PoolStats() map[string]interface{} {
+	stats := r.client.PoolStats()
+	return map[string]interface{}{
+		"hits":        stats.Hits,
+		"misses":      stats.Misses,
+		"timeouts":    stats.Timeouts,
+		"total_conns": stats.TotalConns,
+		"idle_conns":  stats.IdleConns,
+		"stale_conns": stats.StaleConns,
+	}
 }

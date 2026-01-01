@@ -558,6 +558,7 @@ definitions:
         type: string
       compare_price:
         description: Original price (for discount display)
+        minimum: 0
         type: number
       created_at:
         type: string
@@ -568,6 +569,8 @@ definitions:
         type: string
       discount:
         description: Discount percentage
+        maximum: 100
+        minimum: 0
         type: number
       flash_sales:
         items:
@@ -589,6 +592,7 @@ definitions:
         type: string
       name:
         description: Basic Information
+        minLength: 3
         type: string
       order_items:
         items:
@@ -596,6 +600,7 @@ definitions:
         type: array
       price:
         description: Pricing
+        minimum: 0
         type: number
       published_at:
         description: Timestamps
@@ -620,6 +625,7 @@ definitions:
         $ref: '#/definitions/models.ProductStatus'
       stock:
         description: Inventory
+        minimum: 0
         type: integer
       thumbnail:
         type: string
@@ -640,6 +646,12 @@ definitions:
         items:
           $ref: '#/definitions/models.Wishlist'
         type: array
+    required:
+    - category
+    - name
+    - price
+    - sku
+    - weight
     type: object
   models.ProductCategory:
     enum:

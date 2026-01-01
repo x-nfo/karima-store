@@ -84,6 +84,11 @@ type Config struct {
 	// Fonnte
 	FonnteToken string
 	FonnteURL   string
+
+	// Ory Kratos
+	KratosPublicURL string
+	KratosAdminURL  string
+	KratosUIURL     string
 }
 
 func Load() *Config {
@@ -168,6 +173,11 @@ func Load() *Config {
 		// Fonnte
 		FonnteToken: getEnv("FONNTE_TOKEN", ""),
 		FonnteURL:   getEnv("FONNTE_URL", "https://api.fonnte.com/send"),
+
+		// Ory Kratos
+		KratosPublicURL: getEnv("KRATOS_PUBLIC_URL", "http://127.0.0.1:4433"),
+		KratosAdminURL:  getEnv("KRATOS_ADMIN_URL", "http://127.0.0.1:4434"),
+		KratosUIURL:     getEnv("KRATOS_UI_URL", "http://127.0.0.1:4455"),
 	}
 }
 

@@ -59,7 +59,7 @@ func NewCheckoutService(
 
 // Checkout creates an order and generates Midtrans Snap token
 func (s *CheckoutService) Checkout(req *models.CheckoutRequest) (*models.CheckoutResponse, error) {
-	// Convert items to PriceCalculationRequest
+	// 1. Prepare Data & Calculate Prices (Read-Only)
 	var priceReqItems []PriceCalculationRequest
 	for _, item := range req.Items {
 		var variantID *uint
@@ -75,15 +75,12 @@ func (s *CheckoutService) Checkout(req *models.CheckoutRequest) (*models.Checkou
 		})
 	}
 
-	// Create shipping calculation request with items
 	var shippingItems []ShippingItem
 	for _, priceReq := range priceReqItems {
-		// Fetch product to get weight
 		product, err := s.productRepo.GetByID(priceReq.ProductID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get product %d: %w", priceReq.ProductID, err)
 		}
-
 		shippingItems = append(shippingItems, ShippingItem{
 			Weight:   product.Weight,
 			Quantity: priceReq.Quantity,
@@ -92,22 +89,17 @@ func (s *CheckoutService) Checkout(req *models.CheckoutRequest) (*models.Checkou
 
 	shippingReq := ShippingCalculationRequest{
 		Items:        shippingItems,
-		Destination:  req.ShippingCity, // City name or ID
-		ShippingType: "jne",            // Default shipping type
+		Destination:  req.ShippingCity,
+		ShippingType: "jne",
 	}
 
-	// Calculate order summary
 	customerType := CustomerRetail // Default to retail
-
 	orderSummary, err := s.pricingService.CalculateOrderSummary(priceReqItems, shippingReq, customerType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate order summary: %w", err)
 	}
 
-	// Generate order number
 	orderNumber := s.generateOrderNumber()
-
-	// Create order
 	order := &models.Order{
 		OrderNumber:      orderNumber,
 		UserID:           req.UserID,
@@ -118,29 +110,72 @@ func (s *CheckoutService) Checkout(req *models.CheckoutRequest) (*models.Checkou
 		Tax:              orderSummary.TaxAmount,
 		TotalAmount:      orderSummary.Total,
 		ShippingName:     req.ShippingName,
-		ShippingProvider: "JNE", // Default provider
+		ShippingProvider: "JNE",
+		Status:           models.StatusPending,
+		PaymentStatus:    models.PaymentPending,
 		Items:            s.createOrderItems(priceReqItems, orderSummary),
 	}
 
-	// Create order in database
-	if err := s.orderRepo.Create(order); err != nil {
-		return nil, fmt.Errorf("failed to create order: %w", err)
+	// 2. Execution Phase: DB Transaction (Write)
+	// Wraps Stock Deduction and Order Creation in an atomic block.
+	err = s.db.DB().Transaction(func(tx *gorm.DB) error {
+		txProductRepo := s.productRepo.WithTx(tx)
+		txStockLogRepo := s.stockLogRepo.WithTx(tx)
+		txOrderRepo := s.orderRepo.WithTx(tx)
+
+		// A. Deduct Stock (Reservation)
+		// We use the same method 'reduceStockWithTx' but must ensure it checks for negative stock.
+		if err := s.reduceStockWithTx(txProductRepo, txStockLogRepo, order); err != nil {
+			return fmt.Errorf("stock reservation failed: %w", err)
+		}
+
+		// B. Create Order
+		if err := txOrderRepo.Create(order); err != nil {
+			return fmt.Errorf("failed to create order: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
-	// Generate Midtrans Snap token
+	// 3. Post-Transaction: Generate External Payment Token
+	// If this fails, we must explicitly rollback the DB changes (Cancel Order + Restore Stock)
+	// because the Transaction above has already committed.
 	snapToken, err := s.generateSnapToken(order, priceReqItems, req)
 	if err != nil {
-		// Rollback order creation
-		s.orderRepo.Delete(order.ID)
-		return nil, fmt.Errorf("failed to generate Snap token: %w", err)
+		log.Printf("Failed to generate snap token for order %s: %v. Initiating cleanup...", order.OrderNumber, err)
+
+		// Compensation logic: Fail the order and restore stock
+		cleanupErr := s.db.DB().Transaction(func(tx *gorm.DB) error {
+			txOrderRepo := s.orderRepo.WithTx(tx)
+			txProductRepo := s.productRepo.WithTx(tx)
+			txStockLogRepo := s.stockLogRepo.WithTx(tx)
+
+			order.Status = models.StatusCancelled
+			order.CancelReason = "System Error: Payment Generation Failed"
+			if err := txOrderRepo.Update(order); err != nil {
+				return err
+			}
+			return s.restoreStockWithTx(txProductRepo, txStockLogRepo, order)
+		})
+
+		if cleanupErr != nil {
+			log.Printf("CRITICAL: Failed to cleanup order %s after snap token failure: %v", order.OrderNumber, cleanupErr)
+		}
+
+		return nil, fmt.Errorf("failed to initiate payment gateway: %w", err)
 	}
 
-	// Check if notificationService is available (optional injection check)
+	// 4. Notifications (Non-blocking)
 	if s.notificationService != nil {
-		// Send order created notification
-		if err := s.notificationService.SendOrderCreatedNotification(order); err != nil {
-			log.Printf("Failed to send order created notification: %v", err)
-		}
+		go func() {
+			if err := s.notificationService.SendOrderCreatedNotification(order); err != nil {
+				log.Printf("Failed to send order created notification: %v", err)
+			}
+		}()
 	}
 
 	return &models.CheckoutResponse{
@@ -156,7 +191,7 @@ func (s *CheckoutService) Checkout(req *models.CheckoutRequest) (*models.Checkou
 // verifySignature verifies Midtrans webhook signature
 func (s *CheckoutService) verifySignature(notification *models.MidtransPaymentNotification) bool {
 	// Signature format: SHA512(order_id + status_code + gross_amount + server_key)
-	data := fmt.Sprintf("%s%s%s%s",
+	data := fmt.Sprintf("%s%s%.2f%s",
 		notification.OrderID,
 		notification.StatusCode,
 		notification.GrossAmount,
@@ -181,19 +216,20 @@ func (s *CheckoutService) ProcessPaymentNotification(notification *models.Midtra
 	return db.Transaction(func(tx *gorm.DB) error {
 		// Create transaction-aware repositories
 		txOrderRepo := s.orderRepo.WithTx(tx)
+		// txProductRepo is only needed for restore
+		// txStockLogRepo is only needed for restore
 		txProductRepo := s.productRepo.WithTx(tx)
 		txStockLogRepo := s.stockLogRepo.WithTx(tx)
 
 		// Get order by order number with transaction (using FOR UPDATE if needed, but simple Get here is mostly fine unless high concurrency on same order)
-		order, err := s.orderRepo.GetByOrderNumber(notification.OrderID) // Using s.orderRepo to get ID first? Or query directly on tx?
-		// Better to query on tx to ensure we see latest state if we locked rows.
-		// But existing repo methods might not support locking. Let's stick to simple get or implement GetByOrderNumber on tx repo.
-		// Since repository implementation is simple pointer swap, calling GetByOrderNumber on txOrderRepo works on tx.
-
-		// Re-fetch order using transaction repo
-		order, err = txOrderRepo.GetByOrderNumber(notification.OrderID)
+		order, err := txOrderRepo.GetByOrderNumber(notification.OrderID)
 		if err != nil {
 			return fmt.Errorf("order not found: %s", notification.OrderID)
+		}
+
+		// Idempotency check: if status is already final, ignore
+		if order.PaymentStatus == models.PaymentPaid || order.Status == models.StatusCancelled {
+			return nil
 		}
 
 		// Process based on transaction status
@@ -211,16 +247,9 @@ func (s *CheckoutService) ProcessPaymentNotification(notification *models.Midtra
 					return err
 				}
 
-				// Reduce stock and log changes
-				if err := s.reduceStockWithTx(txProductRepo, txStockLogRepo, order); err != nil {
-					return err
-				}
+				// NOTE: Stock already deducted at Checkout. No need to deduct here.
 
-				// Send payment success notification (After transaction commit? Or inside? Inside is safer for logic, but email/wa should be async)
-				// ideally run after commit. For now, we'll run it in goroutine or defer.
-				// Since notificationService doesn't use the transaction DB, we can keep it here or move out.
-				// Moving it out creates complexity passing state. Let's keep specific db logic here.
-				// NOTE: Failure in sending notification should NOT rollback the transaction!
+				// Send payment success notification
 				defer func() {
 					if s.notificationService != nil {
 						if err := s.notificationService.SendPaymentSuccessNotification(order); err != nil {
@@ -229,7 +258,7 @@ func (s *CheckoutService) ProcessPaymentNotification(notification *models.Midtra
 					}
 				}()
 			}
-		case "failed", "cancelled":
+		case "failed", "cancelled", "expire":
 			// Payment failed or cancelled
 			if order.PaymentStatus == models.PaymentPending {
 				order.PaymentStatus = models.PaymentFailed
@@ -242,7 +271,7 @@ func (s *CheckoutService) ProcessPaymentNotification(notification *models.Midtra
 					return err
 				}
 
-				// Restore stock and log changes
+				// RESTORE stock since it was reserved at Checkout
 				if err := s.restoreStockWithTx(txProductRepo, txStockLogRepo, order); err != nil {
 					return err
 				}
@@ -264,7 +293,6 @@ func (s *CheckoutService) ProcessPaymentNotification(notification *models.Midtra
 			}
 		default:
 			// Just return, no error to avoid retry storm from webhook
-			// return fmt.Errorf("unknown transaction status: %s", notification.TransactionStatus)
 			log.Printf("Unknown transaction status: %s", notification.TransactionStatus)
 		}
 
@@ -284,8 +312,7 @@ func (s *CheckoutService) reduceStockWithTx(
 	order *models.Order,
 ) error {
 	for _, item := range order.Items {
-		// Get current stock (for logging)
-		// Note:In high concurrency, we should lock the row. keeping it simple for now.
+		// Get latest stock
 		product, err := productRepo.GetByID(item.ProductID)
 		if err != nil {
 			return err
@@ -294,6 +321,12 @@ func (s *CheckoutService) reduceStockWithTx(
 		changeAmount := -item.Quantity
 		previousStock := product.Stock
 		newStock := previousStock + changeAmount
+
+		// Critical Check: Prevent negative stock
+		if newStock < 0 {
+			return fmt.Errorf("insufficient stock for product %s (ID: %d). Available: %d, Requested: %d",
+				product.Name, item.ProductID, previousStock, item.Quantity)
+		}
 
 		// Update stock
 		if err := productRepo.UpdateStock(item.ProductID, changeAmount); err != nil {
@@ -307,7 +340,7 @@ func (s *CheckoutService) reduceStockWithTx(
 			ChangeAmount:  changeAmount,
 			PreviousStock: previousStock,
 			NewStock:      newStock,
-			Reason:        fmt.Sprintf("Order %s Payment Confirmed", order.OrderNumber),
+			Reason:        fmt.Sprintf("Order %s Placed (Reserved)", order.OrderNumber),
 			ReferenceID:   order.OrderNumber,
 			CreatedAt:     time.Now(),
 		}
@@ -347,7 +380,7 @@ func (s *CheckoutService) restoreStockWithTx(
 			ChangeAmount:  changeAmount,
 			PreviousStock: previousStock,
 			NewStock:      newStock,
-			Reason:        fmt.Sprintf("Order %s Cancelled/Refunded", order.OrderNumber),
+			Reason:        fmt.Sprintf("Order %s Cancelled/Refunded (Restored)", order.OrderNumber),
 			ReferenceID:   order.OrderNumber,
 			CreatedAt:     time.Now(),
 		}

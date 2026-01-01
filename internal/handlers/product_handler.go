@@ -6,17 +6,18 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/karima-store/internal/models"
 	"github.com/karima-store/internal/services"
+	"github.com/karima-store/internal/utils"
 )
 
 type ProductHandler struct {
 	productService services.ProductService
-	mediaService  *services.MediaService
+	mediaService   *services.MediaService
 }
 
 func NewProductHandler(productService services.ProductService, mediaService *services.MediaService) *ProductHandler {
 	return &ProductHandler{
 		productService: productService,
-		mediaService:  mediaService,
+		mediaService:   mediaService,
 	}
 }
 
@@ -34,26 +35,15 @@ func NewProductHandler(productService services.ProductService, mediaService *ser
 func (h *ProductHandler) CreateProduct(c *fiber.Ctx) error {
 	var product models.Product
 
-	if err := c.BodyParser(&product); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Invalid request body",
-			"code":    400,
-		})
+	if err := utils.ParseAndValidate(c, &product); err != nil {
+		return err
 	}
 
 	if err := h.productService.CreateProduct(&product); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-			"code":    400,
-		})
+		return utils.SendError(c, fiber.StatusBadRequest, err.Error(), nil)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"status": "success",
-		"data":   product,
-	})
+	return utils.SendCreated(c, product, "Product created successfully")
 }
 
 // GetProductByID retrieves a product by ID
@@ -78,17 +68,10 @@ func (h *ProductHandler) GetProductByID(c *fiber.Ctx) error {
 
 	product, err := h.productService.GetProductByID(uint(id))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-			"code":    404,
-		})
+		return utils.SendError(c, fiber.StatusNotFound, err.Error(), nil)
 	}
 
-	return c.JSON(fiber.Map{
-		"status": "success",
-		"data":   product,
-	})
+	return utils.SendSuccess(c, product, "Product retrieved successfully")
 }
 
 // GetProductBySlug retrieves a product by slug
@@ -214,36 +197,21 @@ func (h *ProductHandler) UpdateProduct(c *fiber.Ctx) error {
 	}
 
 	var product models.Product
-	if err := c.BodyParser(&product); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Invalid request body",
-			"code":    400,
-		})
+	if err := utils.ParseAndValidate(c, &product); err != nil {
+		return err
 	}
 
 	if err := h.productService.UpdateProduct(uint(id), &product); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-			"code":    400,
-		})
+		return utils.SendError(c, fiber.StatusBadRequest, err.Error(), nil)
 	}
 
 	// Get updated product
 	updatedProduct, err := h.productService.GetProductByID(uint(id))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to retrieve updated product",
-			"code":    500,
-		})
+		return utils.SendError(c, fiber.StatusInternalServerError, "Failed to retrieve updated product", nil)
 	}
 
-	return c.JSON(fiber.Map{
-		"status": "success",
-		"data":   updatedProduct,
-	})
+	return utils.SendSuccess(c, updatedProduct, "Product updated successfully")
 }
 
 // DeleteProduct deletes a product
@@ -576,7 +544,7 @@ func (h *ProductHandler) GetProductMedia(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"status":  "success",
+		"status": "success",
 		"data":   mediaList,
 	})
 }

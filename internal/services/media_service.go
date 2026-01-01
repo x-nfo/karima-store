@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,12 +26,12 @@ type MediaService struct {
 }
 
 type UploadResponse struct {
-	MediaID   uint   `json:"media_id"`
-	URL       string `json:"url"`
-	FileName  string `json:"file_name"`
-	FileSize  int64  `json:"file_size"`
-	Width     int    `json:"width"`
-	Height    int    `json:"height"`
+	MediaID  uint   `json:"media_id"`
+	URL      string `json:"url"`
+	FileName string `json:"file_name"`
+	FileSize int64  `json:"file_size"`
+	Width    int    `json:"width"`
+	Height   int    `json:"height"`
 }
 
 func NewMediaService(
@@ -174,9 +175,9 @@ func (s *MediaService) UploadImage(fileHeader *multipart.FileHeader, productID u
 
 	return &UploadResponse{
 		MediaID:  media.ID,
-		URL:       media.URL,
-		FileName:  uniqueFilename,
-		FileSize:  fileHeader.Size,
+		URL:      media.URL,
+		FileName: uniqueFilename,
+		FileSize: fileHeader.Size,
 	}, nil
 }
 
@@ -243,13 +244,14 @@ func (s *MediaService) ValidateImageFile(fileHeader *multipart.FileHeader) error
 		return errors.New("no file provided")
 	}
 
-	// Check file size (max 10MB)
-	const maxFileSize = 10 * 1024 * 1024
+	// 1. Check Size (Default 5MB limit hardcoded for security, or parse from config)
+	// Using hardcoded 5MB as safe default for profile/product images
+	const maxFileSize = 5 * 1024 * 1024
 	if fileHeader.Size > maxFileSize {
-		return errors.New("file size exceeds 10MB limit")
+		return errors.New("file size exceeds 5MB limit")
 	}
 
-	// Check file extension
+	// 2. Check Extension (Whitelist)
 	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
 	allowedExtensions := map[string]bool{
 		".jpg":  true,
@@ -260,21 +262,35 @@ func (s *MediaService) ValidateImageFile(fileHeader *multipart.FileHeader) error
 	}
 
 	if !allowedExtensions[ext] {
-		return errors.New("invalid file type. Only JPG, PNG, GIF, and WebP are allowed")
+		return errors.New("invalid file extension. Only JPG, PNG, GIF, and WebP are allowed")
 	}
 
-	// Check content type
-	contentType := fileHeader.Header.Get("Content-Type")
-	allowedContentTypes := map[string]bool{
-		"image/jpeg":      true,
-		"image/jpg":       true,
-		"image/png":       true,
-		"image/gif":       true,
-		"image/webp":      true,
+	// 3. Check Magic Bytes (Content Sniffing) to prevent Extension Spoofing
+	src, err := fileHeader.Open()
+	if err != nil {
+		return fmt.Errorf("failed to open file for validation: %w", err)
+	}
+	defer src.Close()
+
+	// Read first 512 bytes to determine content type
+	buffer := make([]byte, 512)
+	if _, err := src.Read(buffer); err != nil && err != io.EOF {
+		return fmt.Errorf("failed to read file header: %w", err)
 	}
 
-	if !allowedContentTypes[contentType] {
-		return errors.New("invalid content type")
+	// Detect actual MIME type
+	mimeType := http.DetectContentType(buffer)
+
+	// Whitelist allowed MIME types
+	allowedMimes := map[string]bool{
+		"image/jpeg": true,
+		"image/png":  true,
+		"image/gif":  true,
+		"image/webp": true,
+	}
+
+	if !allowedMimes[mimeType] {
+		return fmt.Errorf("security check failed: file content detected as %s, expected valid image format", mimeType)
 	}
 
 	return nil
