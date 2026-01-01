@@ -246,9 +246,7 @@ func validateConfiguration(cfg *config.Config) {
 		if cfg.RedisPassword == "" {
 			log.Println("⚠️  WARNING: REDIS_PASSWORD not set (recommended for production)")
 		}
-		if cfg.JWTSecret == "" || cfg.JWTSecret == "super_secret_key" {
-			errors = append(errors, "JWT_SECRET must be set and not default")
-		}
+		// Remove JWT_SECRET validation since we're using Kratos only
 
 		if len(errors) > 0 {
 			log.Println("❌ Production configuration errors:")

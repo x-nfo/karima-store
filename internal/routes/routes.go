@@ -8,7 +8,7 @@ import (
 
 // RegisterRoutes registers all application routes with proper authentication
 func RegisterRoutes(app *fiber.App,
-	auth middleware.AuthProvider,
+	auth middleware.KratosMiddleware,
 	productHandler *handlers.ProductHandler,
 	variantHandler *handlers.VariantHandler,
 	categoryHandler *handlers.CategoryHandler,
@@ -73,101 +73,101 @@ func RegisterRoutes(app *fiber.App,
 	app.Get("/api/v1/whatsapp/webhook-url", whatsappHandler.GetWhatsAppWebhookURL)
 
 	// ===================================================================
-	// AUTHENTICATED USER ENDPOINTS (Requires valid JWT)
+	// AUTHENTICATED USER ENDPOINTS (Requires valid Kratos session)
 	// ===================================================================
 
 	// Checkout (Authenticated users)
-	app.Post("/api/v1/checkout", auth.Authenticate(), checkoutHandler.Checkout)
+	app.Post("/api/v1/checkout", auth.ValidateToken(), checkoutHandler.Checkout)
 
 	// Order management (Authenticated users - own orders only)
-	app.Get("/api/v1/orders", auth.Authenticate(), orderHandler.GetOrders)
-	app.Get("/api/v1/orders/:id", auth.Authenticate(), orderHandler.GetOrder)
+	app.Get("/api/v1/orders", auth.ValidateToken(), orderHandler.GetOrders)
+	app.Get("/api/v1/orders/:id", auth.ValidateToken(), orderHandler.GetOrder)
 
 	// ===================================================================
 	// ADMIN ONLY ENDPOINTS (Requires admin role)
 	// ===================================================================
 
 	// Product management (Admin only)
-	app.Post("/api/v1/products", auth.Authenticate(), auth.RequireAdmin(), productHandler.CreateProduct)
-	app.Put("/api/v1/products/:id", auth.Authenticate(), auth.RequireAdmin(), productHandler.UpdateProduct)
-	app.Delete("/api/v1/products/:id", auth.Authenticate(), auth.RequireAdmin(), productHandler.DeleteProduct)
-	app.Patch("/api/v1/products/:id/stock", auth.Authenticate(), auth.RequireAdmin(), productHandler.UpdateProductStock)
-	app.Post("/api/v1/products/:id/media", auth.Authenticate(), auth.RequireAdmin(), productHandler.UploadProductMedia)
+	app.Post("/api/v1/products", auth.ValidateToken(), auth.RequireAdmin(), productHandler.CreateProduct)
+	app.Put("/api/v1/products/:id", auth.ValidateToken(), auth.RequireAdmin(), productHandler.UpdateProduct)
+	app.Delete("/api/v1/products/:id", auth.ValidateToken(), auth.RequireAdmin(), productHandler.DeleteProduct)
+	app.Patch("/api/v1/products/:id/stock", auth.ValidateToken(), auth.RequireAdmin(), productHandler.UpdateProductStock)
+	app.Post("/api/v1/products/:id/media", auth.ValidateToken(), auth.RequireAdmin(), productHandler.UploadProductMedia)
 
 	// Variant management (Admin only)
-	app.Post("/api/v1/variants", auth.Authenticate(), auth.RequireAdmin(), variantHandler.CreateVariant)
-	app.Put("/api/v1/variants/:id", auth.Authenticate(), auth.RequireAdmin(), variantHandler.UpdateVariant)
-	app.Delete("/api/v1/variants/:id", auth.Authenticate(), auth.RequireAdmin(), variantHandler.DeleteVariant)
-	app.Patch("/api/v1/variants/:id/stock", auth.Authenticate(), auth.RequireAdmin(), variantHandler.UpdateVariantStock)
+	app.Post("/api/v1/variants", auth.ValidateToken(), auth.RequireAdmin(), variantHandler.CreateVariant)
+	app.Put("/api/v1/variants/:id", auth.ValidateToken(), auth.RequireAdmin(), variantHandler.UpdateVariant)
+	app.Delete("/api/v1/variants/:id", auth.ValidateToken(), auth.RequireAdmin(), variantHandler.DeleteVariant)
+	app.Patch("/api/v1/variants/:id/stock", auth.ValidateToken(), auth.RequireAdmin(), variantHandler.UpdateVariantStock)
 
 	// WhatsApp admin operations (Admin only)
-	app.Post("/api/v1/whatsapp/send", auth.Authenticate(), auth.RequireAdmin(), whatsappHandler.SendWhatsAppMessage)
-	app.Get("/api/v1/whatsapp/order-created/:order_id", auth.Authenticate(), auth.RequireAdmin(), whatsappHandler.SendOrderCreatedNotification)
-	app.Get("/api/v1/whatsapp/payment-success/:order_id", auth.Authenticate(), auth.RequireAdmin(), whatsappHandler.SendPaymentSuccessNotification)
-	app.Post("/api/v1/whatsapp/test", auth.Authenticate(), auth.RequireAdmin(), whatsappHandler.SendTestWhatsAppMessage)
+	app.Post("/api/v1/whatsapp/send", auth.ValidateToken(), auth.RequireAdmin(), whatsappHandler.SendWhatsAppMessage)
+	app.Get("/api/v1/whatsapp/order-created/:order_id", auth.ValidateToken(), auth.RequireAdmin(), whatsappHandler.SendOrderCreatedNotification)
+	app.Get("/api/v1/whatsapp/payment-success/:order_id", auth.ValidateToken(), auth.RequireAdmin(), whatsappHandler.SendPaymentSuccessNotification)
+	app.Post("/api/v1/whatsapp/test", auth.ValidateToken(), auth.RequireAdmin(), whatsappHandler.SendTestWhatsAppMessage)
 
 	// ===================================================================
 	// COMMENTED OUT / FUTURE ENDPOINTS
 	// ===================================================================
 
 	// Category management (Admin only - commented out for now)
-	// app.Post("/api/v1/categories", auth.Authenticate(), auth.RequireAdmin(), categoryHandler.CreateCategory)
+	// app.Post("/api/v1/categories", auth.ValidateToken(), auth.RequireAdmin(), categoryHandler.CreateCategory)
 	// app.Get("/api/v1/categories/:id", categoryHandler.GetCategory)
-	// app.Put("/api/v1/categories/:id", auth.Authenticate(), auth.RequireAdmin(), categoryHandler.UpdateCategory)
-	// app.Delete("/api/v1/categories/:id", auth.Authenticate(), auth.RequireAdmin(), categoryHandler.DeleteCategory)
+	// app.Put("/api/v1/categories/:id", auth.ValidateToken(), auth.RequireAdmin(), categoryHandler.UpdateCategory)
+	// app.Delete("/api/v1/categories/:id", auth.ValidateToken(), auth.RequireAdmin(), categoryHandler.DeleteCategory)
 
 	// Media management (Admin only - commented out for now)
-	// app.Post("/api/v1/media", auth.Authenticate(), auth.RequireAdmin(), mediaHandler.CreateMedia)
+	// app.Post("/api/v1/media", auth.ValidateToken(), auth.RequireAdmin(), mediaHandler.CreateMedia)
 	// app.Get("/api/v1/media", mediaHandler.GetMedia)
 	// app.Get("/api/v1/media/:id", mediaHandler.GetMedia)
-	// app.Put("/api/v1/media/:id", auth.Authenticate(), auth.RequireAdmin(), mediaHandler.UpdateMedia)
-	// app.Delete("/api/v1/media/:id", auth.Authenticate(), auth.RequireAdmin(), mediaHandler.DeleteMedia)
+	// app.Put("/api/v1/media/:id", auth.ValidateToken(), auth.RequireAdmin(), mediaHandler.UpdateMedia)
+	// app.Delete("/api/v1/media/:id", auth.ValidateToken(), auth.RequireAdmin(), mediaHandler.DeleteMedia)
 
 	// User management (Admin only - commented out for now)
-	// app.Post("/api/v1/users", auth.Authenticate(), auth.RequireAdmin(), handlers.NewUserHandler(handlers.UserService{}).CreateUser)
-	// app.Get("/api/v1/users", auth.Authenticate(), auth.RequireAdmin(), handlers.NewUserHandler(handlers.UserService{}).GetUsers)
-	// app.Get("/api/v1/users/:id", auth.Authenticate(), auth.RequireAdmin(), handlers.NewUserHandler(handlers.UserService{}).GetUser)
-	// app.Put("/api/v1/users/:id", auth.Authenticate(), auth.RequireAdmin(), handlers.NewUserHandler(handlers.UserService{}).UpdateUser)
-	// app.Delete("/api/v1/users/:id", auth.Authenticate(), auth.RequireAdmin(), handlers.NewUserHandler(handlers.UserService{}).DeleteUser)
+	// app.Post("/api/v1/users", auth.ValidateToken(), auth.RequireAdmin(), handlers.NewUserHandler(handlers.UserService{}).CreateUser)
+	// app.Get("/api/v1/users", auth.ValidateToken(), auth.RequireAdmin(), handlers.NewUserHandler(handlers.UserService{}).GetUsers)
+	// app.Get("/api/v1/users/:id", auth.ValidateToken(), auth.RequireAdmin(), handlers.NewUserHandler(handlers.UserService{}).GetUser)
+	// app.Put("/api/v1/users/:id", auth.ValidateToken(), auth.RequireAdmin(), handlers.NewUserHandler(handlers.UserService{}).UpdateUser)
+	// app.Delete("/api/v1/users/:id", auth.ValidateToken(), auth.RequireAdmin(), handlers.NewUserHandler(handlers.UserService{}).DeleteUser)
 
 	// Cart management (Authenticated users - commented out for now)
-	// app.Post("/api/v1/carts", auth.Authenticate(), handlers.NewCartHandler(handlers.CartService{}).CreateCart)
-	// app.Get("/api/v1/carts", auth.Authenticate(), handlers.NewCartHandler(handlers.CartService{}).GetCart)
-	// app.Put("/api/v1/carts/:id", auth.Authenticate(), handlers.NewCartHandler(handlers.CartService{}).UpdateCart)
-	// app.Delete("/api/v1/carts/:id", auth.Authenticate(), handlers.NewCartHandler(handlers.CartService{}).DeleteCart)
-	// app.Post("/api/v1/carts/:id/items", auth.Authenticate(), handlers.NewCartHandler(handlers.CartService{}).AddCartItem)
-	// app.Delete("/api/v1/carts/:id/items/:item_id", auth.Authenticate(), handlers.NewCartHandler(handlers.CartService{}).RemoveCartItem)
+	// app.Post("/api/v1/carts", auth.ValidateToken(), handlers.NewCartHandler(handlers.CartService{}).CreateCart)
+	// app.Get("/api/v1/carts", auth.ValidateToken(), handlers.NewCartHandler(handlers.CartService{}).GetCart)
+	// app.Put("/api/v1/carts/:id", auth.ValidateToken(), handlers.NewCartHandler(handlers.CartService{}).UpdateCart)
+	// app.Delete("/api/v1/carts/:id", auth.ValidateToken(), handlers.NewCartHandler(handlers.CartService{}).DeleteCart)
+	// app.Post("/api/v1/carts/:id/items", auth.ValidateToken(), handlers.NewCartHandler(handlers.CartService{}).AddCartItem)
+	// app.Delete("/api/v1/carts/:id/items/:item_id", auth.ValidateToken(), handlers.NewCartHandler(handlers.CartService{}).RemoveCartItem)
 
 	// Wishlist management (Authenticated users - commented out for now)
-	// app.Post("/api/v1/wishlists", auth.Authenticate(), handlers.NewWishlistHandler(handlers.WishlistService{}).CreateWishlist)
-	// app.Get("/api/v1/wishlists", auth.Authenticate(), handlers.NewWishlistHandler(handlers.WishlistService{}).GetWishlists)
-	// app.Put("/api/v1/wishlists/:id", auth.Authenticate(), handlers.NewWishlistHandler(handlers.WishlistService{}).UpdateWishlist)
-	// app.Delete("/api/v1/wishlists/:id", auth.Authenticate(), handlers.NewWishlistHandler(handlers.WishlistService{}).DeleteWishlist)
-	// app.Post("/api/v1/wishlists/:id/items", auth.Authenticate(), handlers.NewWishlistHandler(handlers.WishlistService{}).AddWishlistItem)
-	// app.Delete("/api/v1/wishlists/:id/items/:item_id", auth.Authenticate(), handlers.NewWishlistHandler(handlers.WishlistService{}).RemoveWishlistItem)
+	// app.Post("/api/v1/wishlists", auth.ValidateToken(), handlers.NewWishlistHandler(handlers.WishlistService{}).CreateWishlist)
+	// app.Get("/api/v1/wishlists", auth.ValidateToken(), handlers.NewWishlistHandler(handlers.WishlistService{}).GetWishlists)
+	// app.Put("/api/v1/wishlists/:id", auth.ValidateToken(), handlers.NewWishlistHandler(handlers.WishlistService{}).UpdateWishlist)
+	// app.Delete("/api/v1/wishlists/:id", auth.ValidateToken(), handlers.NewWishlistHandler(handlers.WishlistService{}).DeleteWishlist)
+	// app.Post("/api/v1/wishlists/:id/items", auth.ValidateToken(), handlers.NewWishlistHandler(handlers.WishlistService{}).AddWishlistItem)
+	// app.Delete("/api/v1/wishlists/:id/items/:item_id", auth.ValidateToken(), handlers.NewWishlistHandler(handlers.WishlistService{}).RemoveWishlistItem)
 
 	// Flash sale management (Admin only - commented out for now)
-	// app.Post("/api/v1/flash-sales", auth.Authenticate(), auth.RequireAdmin(), handlers.NewFlashSaleHandler(handlers.FlashSaleService{}).CreateFlashSale)
+	// app.Post("/api/v1/flash-sales", auth.ValidateToken(), auth.RequireAdmin(), handlers.NewFlashSaleHandler(handlers.FlashSaleService{}).CreateFlashSale)
 	// app.Get("/api/v1/flash-sales", handlers.NewFlashSaleHandler(handlers.FlashSaleService{}).GetFlashSales)
-	// app.Put("/api/v1/flash-sales/:id", auth.Authenticate(), auth.RequireAdmin(), handlers.NewFlashSaleHandler(handlers.FlashSaleService{}).UpdateFlashSale)
-	// app.Delete("/api/v1/flash-sales/:id", auth.Authenticate(), auth.RequireAdmin(), handlers.NewFlashSaleHandler(handlers.FlashSaleService{}).DeleteFlashSale)
+	// app.Put("/api/v1/flash-sales/:id", auth.ValidateToken(), auth.RequireAdmin(), handlers.NewFlashSaleHandler(handlers.FlashSaleService{}).UpdateFlashSale)
+	// app.Delete("/api/v1/flash-sales/:id", auth.ValidateToken(), auth.RequireAdmin(), handlers.NewFlashSaleHandler(handlers.FlashSaleService{}).DeleteFlashSale)
 
 	// Review management (Authenticated users can create, admin can moderate)
-	// app.Post("/api/v1/reviews", auth.Authenticate(), handlers.NewReviewHandler(handlers.ReviewService{}).CreateReview)
+	// app.Post("/api/v1/reviews", auth.ValidateToken(), handlers.NewReviewHandler(handlers.ReviewService{}).CreateReview)
 	// app.Get("/api/v1/reviews", handlers.NewReviewHandler(handlers.ReviewService{}).GetReviews)
-	// app.Put("/api/v1/reviews/:id", auth.Authenticate(), handlers.NewReviewHandler(handlers.ReviewService{}).UpdateReview)
-	// app.Delete("/api/v1/reviews/:id", auth.Authenticate(), auth.RequireAdmin(), handlers.NewReviewHandler(handlers.ReviewService{}).DeleteReview)
+	// app.Put("/api/v1/reviews/:id", auth.ValidateToken(), handlers.NewReviewHandler(handlers.ReviewService{}).UpdateReview)
+	// app.Delete("/api/v1/reviews/:id", auth.ValidateToken(), auth.RequireAdmin(), handlers.NewReviewHandler(handlers.ReviewService{}).DeleteReview)
 
 	// Komerce integration (Admin only - commented out for now)
-	// app.Post("/api/v1/komerce/orders", auth.Authenticate(), auth.RequireAdmin(), komerceHandler.CreateOrder)
-	// app.Put("/api/v1/komerce/orders/cancel", auth.Authenticate(), auth.RequireAdmin(), komerceHandler.CancelOrder)
-	// app.Post("/api/v1/komerce/pickup", auth.Authenticate(), auth.RequireAdmin(), komerceHandler.RequestPickup)
-	// app.Post("/api/v1/komerce/orders/print-label", auth.Authenticate(), auth.RequireAdmin(), komerceHandler.PrintLabel)
+	// app.Post("/api/v1/komerce/orders", auth.ValidateToken(), auth.RequireAdmin(), komerceHandler.CreateOrder)
+	// app.Put("/api/v1/komerce/orders/cancel", auth.ValidateToken(), auth.RequireAdmin(), komerceHandler.CancelOrder)
+	// app.Post("/api/v1/komerce/pickup", auth.ValidateToken(), auth.RequireAdmin(), komerceHandler.RequestPickup)
+	// app.Post("/api/v1/komerce/orders/print-label", auth.ValidateToken(), auth.RequireAdmin(), komerceHandler.PrintLabel)
 
 	// Order admin operations (Admin only - commented out for now)
-	// app.Put("/api/v1/checkout/:id/confirm", auth.Authenticate(), auth.RequireAdmin(), checkoutHandler.ConfirmOrder)
-	// app.Put("/api/v1/checkout/:id/cancel", auth.Authenticate(), auth.RequireAdmin(), checkoutHandler.CancelOrder)
-	// app.Put("/api/v1/checkout/:id/ship", auth.Authenticate(), auth.RequireAdmin(), checkoutHandler.ShipOrder)
-	// app.Put("/api/v1/checkout/:id/deliver", auth.Authenticate(), auth.RequireAdmin(), checkoutHandler.DeliverOrder)
-	// app.Put("/api/v1/checkout/:id/refund", auth.Authenticate(), auth.RequireAdmin(), checkoutHandler.RefundOrder)
+	// app.Put("/api/v1/checkout/:id/confirm", auth.ValidateToken(), auth.RequireAdmin(), checkoutHandler.ConfirmOrder)
+	// app.Put("/api/v1/checkout/:id/cancel", auth.ValidateToken(), auth.RequireAdmin(), checkoutHandler.CancelOrder)
+	// app.Put("/api/v1/checkout/:id/ship", auth.ValidateToken(), auth.RequireAdmin(), checkoutHandler.ShipOrder)
+	// app.Put("/api/v1/checkout/:id/deliver", auth.ValidateToken(), auth.RequireAdmin(), checkoutHandler.DeliverOrder)
+	// app.Put("/api/v1/checkout/:id/refund", auth.ValidateToken(), auth.RequireAdmin(), checkoutHandler.RefundOrder)
 }

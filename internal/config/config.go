@@ -26,10 +26,6 @@ type Config struct {
 	AppPort string
 	AppEnv  string
 
-	// JWT
-	JWTSecret     string
-	JWTExpiration string
-
 	// File Storage
 	FileStorage       string
 	FileUploadMaxSize string
@@ -114,10 +110,6 @@ func Load() *Config {
 		// Application
 		AppPort: getEnv("APP_PORT", "8080"),
 		AppEnv:  getEnv("APP_ENV", "development"),
-
-		// JWT
-		JWTSecret:     getEnv("JWT_SECRET", "super_secret_key"),
-		JWTExpiration: getEnv("JWT_EXPIRATION", "24h"),
 
 		// File Storage
 		FileStorage:       getEnv("FILE_STORAGE", "local"),
