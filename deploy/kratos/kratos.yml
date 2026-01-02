@@ -46,10 +46,14 @@ selfservice:
     settings:
       ui_url: ${KRATOS_UI_URL}/settings
       privileged_session_max_age: 15m
+      after:
+        default_browser_return_url: ${KRATOS_DEFAULT_RETURN_URL}
 
     recovery:
       enabled: true
       ui_url: ${KRATOS_UI_URL}/recovery
+      after:
+        default_browser_return_url: ${KRATOS_DEFAULT_RETURN_URL}
 
     verification:
       enabled: true
@@ -64,6 +68,8 @@ selfservice:
     login:
       ui_url: ${KRATOS_UI_URL}/login
       lifespan: 10m
+      after:
+        default_browser_return_url: ${KRATOS_DEFAULT_RETURN_URL}
 
     registration:
       lifespan: 10m
@@ -72,6 +78,28 @@ selfservice:
         password:
           hooks:
             - hook: session
+        default_browser_return_url: ${KRATOS_DEFAULT_RETURN_URL}
+
+  # Cookie security configuration for production
+  cookies:
+    domain: ${KRATOS_COOKIE_DOMAIN:-}
+    path: /
+    same_site: ${KRATOS_COOKIE_SAME_SITE:-Lax}
+    # secure: true ensures cookies are only sent over HTTPS
+    secure: ${KRATOS_COOKIE_SECURE:-true}
+    # httpOnly: true prevents JavaScript access to cookies
+    http_only: ${KRATOS_COOKIE_HTTP_ONLY:-true}
+
+  # Session configuration
+  session:
+    lifespan: ${KRATOS_SESSION_LIFESPAN:-24h}
+    cookie:
+      domain: ${KRATOS_COOKIE_DOMAIN:-}
+      path: /
+      same_site: ${KRATOS_COOKIE_SAME_SITE:-Lax}
+      secure: ${KRATOS_COOKIE_SECURE:-true}
+      http_only: ${KRATOS_COOKIE_HTTP_ONLY:-true}
+      name: ${KRATOS_SESSION_COOKIE_NAME:-ory_kratos_session}
 
 log:
   level: ${KRATOS_LOG_LEVEL:-info}
@@ -93,3 +121,10 @@ identity:
 courier:
   smtp:
     connection_uri: ${KRATOS_SMTP_CONNECTION_URI}
+
+# Feature flags for security enhancements
+feature_flags:
+  use_continue_with_transitions: ${KRATOS_USE_CONTINUE_WITH:-false}
+  aal:
+    aa1_enabled: ${KRATOS_AAL_AA1_ENABLED:-true}
+    aa2_enabled: ${KRATOS_AAL_AA2_ENABLED:-false}
