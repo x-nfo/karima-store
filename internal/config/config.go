@@ -81,6 +81,9 @@ type Config struct {
 	FonnteToken string
 	FonnteURL   string
 
+	// JWT
+	JWTSecret string
+
 	// Ory Kratos
 	KratosPublicURL string
 	KratosAdminURL  string
@@ -98,7 +101,7 @@ func Load() *Config {
 		DBHost:     getEnv("DB_HOST", "localhost"),
 		DBPort:     getEnv("DB_PORT", "5432"),
 		DBUser:     getEnv("DB_USER", "postgres"),
-		DBPassword: getEnv("DB_PASSWORD", "secret"),
+		DBPassword: getEnv("DB_PASSWORD", ""),
 		DBName:     getEnv("DB_NAME", "karima_db"),
 		DBSSLMode:  getEnv("DB_SSL_MODE", "disable"),
 
@@ -166,6 +169,9 @@ func Load() *Config {
 		FonnteToken: getEnv("FONNTE_TOKEN", ""),
 		FonnteURL:   getEnv("FONNTE_URL", "https://api.fonnte.com/send"),
 
+		// JWT
+		JWTSecret: getEnv("JWT_SECRET", ""),
+
 		// Ory Kratos
 		KratosPublicURL: getEnv("KRATOS_PUBLIC_URL", "http://127.0.0.1:4433"),
 		KratosAdminURL:  getEnv("KRATOS_ADMIN_URL", "http://127.0.0.1:4434"),
@@ -196,4 +202,43 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
+}
+
+// Validate validates critical configuration and terminates the application if required variables are missing
+func (c *Config) Validate() {
+	var errors []string
+
+	// Critical variables that must always be set
+	if c.DBPassword == "" {
+		errors = append(errors, "DB_PASSWORD is required but not set")
+	}
+
+	// Validate based on environment
+	if c.AppEnv == "production" {
+		// Production-specific strict validation
+		if c.JWTSecret == "" {
+			errors = append(errors, "JWT_SECRET is required in production")
+		}
+
+		// Validate CORS_ORIGIN is set to specific domains, not wildcard
+		if c.CORSOrigin == "*" || c.CORSOrigin == "" {
+			errors = append(errors, "CORS_ORIGIN must be set to specific domains in production, not wildcard")
+		}
+
+		// Validate Redis password in production
+		if c.RedisPassword == "" {
+			log.Println("⚠️  WARNING: REDIS_PASSWORD not set (recommended for production)")
+		}
+	}
+
+	// If there are any errors, log them and exit
+	if len(errors) > 0 {
+		log.Println("❌ Configuration validation failed:")
+		for _, err := range errors {
+			log.Printf("  - %s", err)
+		}
+		log.Fatal("Application cannot start due to missing required configuration")
+	}
+
+	log.Println("✅ Configuration validated successfully")
 }

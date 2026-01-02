@@ -5,7 +5,6 @@ func TestConfig() *Config {
 	return &Config{
 		AppEnv:          "test",
 		AppPort:         "8080",
-		AppName:         "karima-store-test",
 		DBHost:          "localhost",
 		DBPort:          "5432",
 		DBUser:          "test_user",
@@ -25,6 +24,7 @@ func TestConfig() *Config {
 		R2BucketName:    "",
 		R2PublicURL:     "",
 		R2Region:        "",
+		JWTSecret:       "test-secret-key-for-testing-only",
 	}
 }
 

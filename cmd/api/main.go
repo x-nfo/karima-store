@@ -29,8 +29,8 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
-	// Validate critical configuration (production only, warnings only in dev)
-	validateConfiguration(cfg)
+	// Validate critical configuration - will terminate app if required variables are missing
+	cfg.Validate()
 
 	// Initialize database connections
 	db, err := database.NewPostgreSQL(cfg)
@@ -236,37 +236,6 @@ func checkRedis(redis *database.Redis) error {
 	return nil
 }
 
-// validateConfiguration validates critical configuration based on environment
-func validateConfiguration(cfg *config.Config) {
-	if cfg.AppEnv == "production" {
-		// Strict validation for production
-		var errors []string
-
-		if cfg.DBPassword == "" || cfg.DBPassword == "secret" {
-			errors = append(errors, "DB_PASSWORD must be set and not default")
-		}
-		if cfg.RedisPassword == "" {
-			log.Println("⚠️  WARNING: REDIS_PASSWORD not set (recommended for production)")
-		}
-		// Remove JWT_SECRET validation since we're using Kratos only
-
-		if len(errors) > 0 {
-			log.Println("❌ Production configuration errors:")
-			for _, err := range errors {
-				log.Printf("  - %s", err)
-			}
-			log.Fatal("Fix configuration errors before running in production")
-		}
-
-		log.Println("✅ Production configuration validated")
-	} else {
-		// Development: Just warnings
-		log.Println("ℹ️  Development mode: Using relaxed configuration validation")
-		if cfg.DBPassword == "secret" || cfg.DBPassword == "lokal" {
-			log.Println("⚠️  Using default database password (OK for development)")
-		}
-	}
-}
 
 // Helper functions for environment variables
 func getEnv(key, defaultValue string) string {
