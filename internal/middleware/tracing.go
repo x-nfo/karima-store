@@ -3,7 +3,7 @@ package middleware
 import (
 	"crypto/rand"
 	"fmt"
-	"karima_store/internal/errors"
+	"github.com/karima-store/internal/errors"
 	"sync"
 	"time"
 

@@ -10,7 +10,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
-	"karima_store/internal/errors"
+	"github.com/karima-store/internal/errors"
 	"mime/multipart"
 	"net/http"
 	"os"

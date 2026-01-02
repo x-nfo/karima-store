@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	apperrors "karima_store/internal/errors"
-	"karima_store/internal/database"
-	"karima_store/internal/models"
-	"karima_store/internal/repository"
-	"karima_store/internal/middleware"
+	apperrors "github.com/karima-store/internal/errors"
+	"github.com/karima-store/internal/database"
+	"github.com/karima-store/internal/models"
+	"github.com/karima-store/internal/repository"
+	"github.com/karima-store/internal/middleware"
 
 	"gorm.io/gorm"
 )

@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"fmt"
-	"karima_store/internal/errors"
+	"github.com/karima-store/internal/errors"
 	"runtime"
 	"sync"
 	"time"

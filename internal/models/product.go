@@ -1,6 +1,8 @@
 package models
 
 import (
+	"errors"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -23,6 +25,8 @@ const (
 	StatusAvailable    ProductStatus = "available"
 	StatusOutOfStock   ProductStatus = "out_of_stock"
 	StatusDiscontinued ProductStatus = "discontinued"
+	StatusUnavailable  ProductStatus = "unavailable"
+	StatusDraft        ProductStatus = "draft"
 )
 
 type Product struct {
@@ -46,6 +50,9 @@ type Product struct {
 	Stock  int           `json:"stock" gorm:"default:0" validate:"gte=0"`
 	Status ProductStatus `json:"status" gorm:"not null;default:'available'"`
 	SKU    string        `json:"sku" gorm:"uniqueIndex;size:100" validate:"required"`
+
+	// Featured
+	IsFeatured bool `json:"is_featured" gorm:"default:false"`
 
 	// Media
 	Media     []Media `json:"media,omitempty" gorm:"foreignKey:ProductID"`
@@ -78,6 +85,49 @@ type Product struct {
 	Reviews    []Review         `json:"reviews,omitempty" gorm:"foreignKey:ProductID"`
 	Wishlist   []Wishlist       `json:"wishlist,omitempty" gorm:"foreignKey:ProductID"`
 	FlashSales []FlashSale      `json:"flash_sales,omitempty" gorm:"many2many:flash_sale_products;"`
+}
+
+// GenerateSlug generates a URL-friendly slug from the product name
+func (p *Product) GenerateSlug() {
+	if p.Slug == "" && p.Name != "" {
+		// Simple slug generation - can be enhanced
+		p.Slug = strings.ToLower(strings.ReplaceAll(p.Name, " ", "-"))
+	}
+}
+
+// Validate performs basic validation on the product
+func (p *Product) Validate() error {
+	if p.Name == "" {
+		return errors.New("product name is required")
+	}
+	if p.Price < 0 {
+		return errors.New("price cannot be negative")
+	}
+	if p.Stock < 0 {
+		return errors.New("stock cannot be negative")
+	}
+	if p.SKU == "" {
+		return errors.New("SKU is required")
+	}
+	return nil
+}
+
+// IsAvailable checks if the product is available for purchase
+func (p *Product) IsAvailable() bool {
+	return p.Status == StatusAvailable && p.Stock > 0
+}
+
+// HasStock checks if the product has sufficient stock
+func (p *Product) HasStock(quantity int) bool {
+	return p.Stock >= quantity
+}
+
+// CalculateDiscountedPrice calculates the final price after discount
+func (p *Product) CalculateDiscountedPrice() float64 {
+	if p.Discount > 0 {
+		return p.Price * (1 - p.Discount/100)
+	}
+	return p.Price
 }
 
 func (Product) TableName() string {

@@ -151,6 +151,22 @@ func TestInputValidation_MissingRequiredFields(t *testing.T) {
 func TestInputValidation_SQLInjection(t *testing.T) {
 	app := fiber.New()
 
+	// Check for dangerous SQL patterns - reject if found
+	containsSQLInjection := func(input string) bool {
+		dangerousPatterns := []string{
+			"DROP", "DELETE", "INSERT", "UPDATE", "ALTER", "CREATE", "TRUNCATE",
+			"EXEC", "EXECUTE", "UNION", "SELECT", "xp_", "sp_",
+			"--", "/*", "*/", ";", "'", "\"",
+		}
+		inputUpper := strings.ToUpper(input)
+		for _, pattern := range dangerousPatterns {
+			if strings.Contains(inputUpper, strings.ToUpper(pattern)) {
+				return true
+			}
+		}
+		return false
+	}
+
 	app.Post("/products", func(c *fiber.Ctx) error {
 		var input ProductInput
 		if err := c.BodyParser(&input); err != nil {
@@ -159,9 +175,12 @@ func TestInputValidation_SQLInjection(t *testing.T) {
 			})
 		}
 
-		// Sanitize input (basic example)
-		input.Name = strings.ReplaceAll(input.Name, "'", "''")
-		input.Category = strings.ReplaceAll(input.Category, "'", "''")
+		// Check for SQL injection and reject if found
+		if containsSQLInjection(input.Name) || containsSQLInjection(input.Category) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid input: potential SQL injection detected",
+			})
+		}
 
 		return c.JSON(fiber.Map{
 			"name":     input.Name,
@@ -169,7 +188,7 @@ func TestInputValidation_SQLInjection(t *testing.T) {
 		})
 	})
 
-	// Test SQL injection attempt
+	// Test SQL injection attempt - should be rejected
 	sqlInjectionInput := map[string]interface{}{
 		"name":     "'; DROP TABLE products; --",
 		"price":    99.99,
@@ -182,11 +201,11 @@ func TestInputValidation_SQLInjection(t *testing.T) {
 	resp, err := app.Test(req)
 	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-	// Verify that the input was sanitized
+	// Should return 400 Bad Request for SQL injection attempt
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 	bodyBytes, _ := io.ReadAll(resp.Body)
-	assert.NotContains(t, string(bodyBytes), "'; DROP TABLE")
-	assert.NotContains(t, string(bodyBytes), "DELETE FROM")
+	assert.Contains(t, string(bodyBytes), "Invalid input")
+	assert.Contains(t, string(bodyBytes), "SQL injection")
 }
 
 func TestInputValidation_XSSAttack(t *testing.T) {
@@ -227,7 +246,7 @@ func TestInputValidation_XSSAttack(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-	// Verify that the script tags were removed
+	// Verify that script tags were removed
 	bodyBytes, _ := io.ReadAll(resp.Body)
 	assert.NotContains(t, string(bodyBytes), "<script>")
 	assert.NotContains(t, string(bodyBytes), "</script>")
@@ -235,6 +254,25 @@ func TestInputValidation_XSSAttack(t *testing.T) {
 
 func TestInputValidation_CommandInjection(t *testing.T) {
 	app := fiber.New()
+
+	// Check for dangerous command injection patterns
+	containsCommandInjection := func(input string) bool {
+		dangerousPatterns := []string{
+			";", "&", "|", "`", "$", "(", ")", "<", ">",
+			"rm ", "rmdir ", "del ", "format ", "fdisk ",
+			"mkfs", "dd ", "chmod ", "chown ", "chgrp ",
+			"wget", "curl ", "nc ", "netcat",
+			"eval", "exec", "system", "passthru",
+			"shell_exec", "popen", "proc_open",
+		}
+		inputLower := strings.ToLower(input)
+		for _, pattern := range dangerousPatterns {
+			if strings.Contains(inputLower, strings.ToLower(pattern)) {
+				return true
+			}
+		}
+		return false
+	}
 
 	app.Post("/products", func(c *fiber.Ctx) error {
 		var input ProductInput
@@ -244,18 +282,19 @@ func TestInputValidation_CommandInjection(t *testing.T) {
 			})
 		}
 
-		// Sanitize input (basic command injection prevention)
-		input.Name = strings.ReplaceAll(input.Name, ";", "")
-		input.Name = strings.ReplaceAll(input.Name, "&", "")
-		input.Name = strings.ReplaceAll(input.Name, "|", "")
-		input.Name = strings.ReplaceAll(input.Name, "`", "")
+		// Check for command injection and reject if found
+		if containsCommandInjection(input.Name) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid input: potential command injection detected",
+			})
+		}
 
 		return c.JSON(fiber.Map{
 			"name": input.Name,
 		})
 	})
 
-	// Test command injection attempt
+	// Test command injection attempt - should be rejected
 	cmdInjectionInput := map[string]interface{}{
 		"name":     "product; rm -rf /",
 		"price":    99.99,
@@ -268,11 +307,11 @@ func TestInputValidation_CommandInjection(t *testing.T) {
 	resp, err := app.Test(req)
 	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-	// Verify that the dangerous characters were removed
+	// Should return 400 Bad Request for command injection attempt
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 	bodyBytes, _ := io.ReadAll(resp.Body)
-	assert.NotContains(t, string(bodyBytes), ";")
-	assert.NotContains(t, string(bodyBytes), "rm -rf")
+	assert.Contains(t, string(bodyBytes), "Invalid input")
+	assert.Contains(t, string(bodyBytes), "command injection")
 }
 
 func TestInputValidation_PathTraversal(t *testing.T) {

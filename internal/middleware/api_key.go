@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"karima_store/internal/errors"
+	"github.com/karima-store/internal/errors"
 	"strings"
 	"sync"
 	"time"

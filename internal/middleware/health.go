@@ -3,9 +3,9 @@ package middleware
 import (
 	"context"
 	"fmt"
-	"karima_store/internal/config"
-	"karima_store/internal/database"
-	"karima_store/internal/storage"
+	"github.com/karima-store/internal/config"
+	"github.com/karima-store/internal/database"
+	"github.com/karima-store/internal/storage"
 	"runtime"
 	"sync"
 	"time"

@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	apperrors "karima_store/internal/errors"
+	apperrors "github.com/karima-store/internal/errors"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"

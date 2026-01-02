@@ -1,23 +1,25 @@
-package internal
+package test_setup
 
 import (
+	"context"
 	"log"
 	"os"
 	"testing"
 
 	"github.com/karima-store/internal/config"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-// TestDB is the global test database instance
+// TestDB is global test database instance
 var TestDB *gorm.DB
 
-// TestConfig is the global test configuration
+// TestConfig is global test configuration
 var TestCfg *config.Config
 
-// TestMain is the main entry point for tests
+// TestMain is main entry point for tests
 func TestMain(m *testing.M) {
 	// Setup test environment
 	setupTestEnvironment()
@@ -32,7 +34,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// setupTestEnvironment sets up the test environment
+// setupTestEnvironment sets up test environment
 func setupTestEnvironment() {
 	// Load test configuration
 	TestCfg = config.TestConfig()
@@ -46,7 +48,7 @@ func setupTestEnvironment() {
 	log.Println("Test environment setup complete")
 }
 
-// cleanupTestEnvironment cleans up the test environment
+// cleanupTestEnvironment cleans up test environment
 func cleanupTestEnvironment() {
 	// Close database connection
 	if TestDB != nil {
@@ -59,7 +61,7 @@ func cleanupTestEnvironment() {
 	log.Println("Test environment cleanup complete")
 }
 
-// setupTestDatabase sets up the test database
+// setupTestDatabase sets up test database
 func setupTestDatabase() {
 	// Build DSN for test database
 	dsn := buildTestDSN()
@@ -82,7 +84,7 @@ func setupTestDatabase() {
 	log.Println("Test database setup complete")
 }
 
-// buildTestDSN builds the DSN for the test database
+// buildTestDSN builds DSN for test database
 func buildTestDSN() string {
 	return "host=" + TestCfg.DBHost +
 		" port=" + TestCfg.DBPort +
@@ -126,12 +128,53 @@ func CleanupTestData(t *testing.T) {
 	}
 }
 
-// GetTestDB returns the test database instance
+// GetTestDB returns test database instance
 func GetTestDB() *gorm.DB {
 	return TestDB
 }
 
-// GetTestConfig returns the test configuration
+// GetTestConfig returns test configuration
 func GetTestConfig() *config.Config {
 	return TestCfg
+}
+
+// SetupTestDB sets up a test database for individual tests
+func SetupTestDB(t *testing.T) (*gorm.DB, func()) {
+	// Create a new database connection for this test
+	dsn := buildTestDSN()
+
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	if err != nil {
+		t.Fatalf("Failed to connect to test database: %v", err)
+	}
+
+	// Clean up function
+	cleanup := func() {
+		sqlDB, err := db.DB()
+		if err == nil {
+			sqlDB.Close()
+		}
+	}
+
+	return db, cleanup
+}
+
+// SetupTestRedis sets up a test Redis client for individual tests
+func SetupTestRedis(t *testing.T) *redis.Client {
+	client := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       1, // Use DB 1 for tests
+	})
+
+	// Test connection
+	ctx := context.Background()
+	_, err := client.Ping(ctx).Result()
+	if err != nil {
+		t.Logf("Warning: Redis not available for testing: %v", err)
+	}
+
+	return client
 }

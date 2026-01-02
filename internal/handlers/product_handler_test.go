@@ -7,11 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	apperrors "karima_store/internal/errors"
-	"karima_store/internal/models"
-	"karima_store/internal/repository"
-	"karima_store/internal/services"
-	"karima_store/internal/test_setup"
+	apperrors "github.com/karima-store/internal/errors"
+	"github.com/karima-store/internal/models"
+	"github.com/karima-store/internal/repository"
+	"github.com/karima-store/internal/services"
+	"github.com/karima-store/internal/test_setup"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"

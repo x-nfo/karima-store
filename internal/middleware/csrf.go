@@ -5,7 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
-	"karima_store/internal/errors"
+	"github.com/karima-store/internal/errors"
 	"strings"
 	"sync"
 	"time"

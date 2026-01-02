@@ -2,8 +2,8 @@ package middleware
 
 import (
 	"fmt"
-	"karima_store/internal/errors"
-	"karima_store/internal/utils"
+	"github.com/karima-store/internal/errors"
+	"github.com/karima-store/internal/utils"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"

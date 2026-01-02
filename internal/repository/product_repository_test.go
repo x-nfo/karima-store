@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"karima_store/internal/models"
-	"karima_store/internal/test_setup"
+	"github.com/karima-store/internal/models"
+	"github.com/karima-store/internal/test_setup"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

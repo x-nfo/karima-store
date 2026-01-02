@@ -305,8 +305,6 @@ func TestSecurityErrorMessages_AuthenticationError(t *testing.T) {
 }
 
 func TestErrorHandling_ErrorCodeConsistency(t *testing.T) {
-	app := fiber.New()
-
 	// Test that error codes are consistent with HTTP standards
 	tests := []struct {
 		name           string
@@ -342,6 +340,7 @@ func TestErrorHandling_ErrorCodeConsistency(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			app := fiber.New()
 			app.Get("/test-error", func(c *fiber.Ctx) error {
 				return SendError(c, tt.statusCode, "Test error", nil)
 			})
