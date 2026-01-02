@@ -13,26 +13,29 @@ import (
 	"karima_store/internal/errors"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/dutchcoders/go-clamd"
 	"github.com/gofiber/fiber/v2"
 )
 
 // SecureFileUploadConfig holds configuration for secure file upload
 type SecureFileUploadConfig struct {
-	MaxFileSize         int64    // Maximum file size in bytes
-	AllowedMimeTypes    []string // Allowed MIME types
-	AllowedExtensions   []string // Allowed file extensions
-	MaxImageWidth       int      // Maximum image width (0 = no limit)
-	MaxImageHeight      int      // Maximum image height (0 = no limit)
-	MinImageWidth       int      // Minimum image width (0 = no limit)
-	MinImageHeight      int      // Minimum image height (0 = no limit)
-	ScanForMalware      bool     // Enable malware scanning
-	SanitizeFilename    bool     // Sanitize filename
-	Required            bool     // Is file required
-	MalwareScanner      MalwareScanner // Malware scanner implementation
+	MaxFileSize       int64          // Maximum file size in bytes
+	AllowedMimeTypes  []string       // Allowed MIME types
+	AllowedExtensions []string       // Allowed file extensions
+	MaxImageWidth     int            // Maximum image width (0 = no limit)
+	MaxImageHeight    int            // Maximum image height (0 = no limit)
+	MinImageWidth     int            // Minimum image width (0 = no limit)
+	MinImageHeight    int            // Minimum image height (0 = no limit)
+	ScanForMalware    bool           // Enable malware scanning
+	SanitizeFilename  bool           // Sanitize filename
+	Required          bool           // Is file required
+	MalwareScanner    MalwareScanner // Malware scanner implementation
+	FailOpen          bool           // If true, allow file upload when scanner fails (fail-open); if false, block upload (fail-closed)
 }
 
 // MalwareScanner defines the interface for malware scanning services
@@ -44,14 +47,14 @@ type MalwareScanner interface {
 
 // ScanResult represents the result of a malware scan
 type ScanResult struct {
-	ScanID       string    `json:"scan_id"`
-	Filename     string    `json:"filename"`
-	FileHash     string    `json:"file_hash"`
-	IsClean      bool      `json:"is_clean"`
-	Threats      []string  `json:"threats,omitempty"`
-	ScannedAt    time.Time `json:"scanned_at"`
+	ScanID       string        `json:"scan_id"`
+	Filename     string        `json:"filename"`
+	FileHash     string        `json:"file_hash"`
+	IsClean      bool          `json:"is_clean"`
+	Threats      []string      `json:"threats,omitempty"`
+	ScannedAt    time.Time     `json:"scanned_at"`
 	ScanDuration time.Duration `json:"scan_duration"`
-	ScannerName  string    `json:"scanner_name"`
+	ScannerName  string        `json:"scanner_name"`
 }
 
 // ClamAVScanner implements MalwareScanner using ClamAV
@@ -109,15 +112,33 @@ func (s *ClamAVScanner) ScanFile(ctx context.Context, file io.Reader, filename s
 
 // scanWithClamAV performs actual ClamAV scan
 func (s *ClamAVScanner) scanWithClamAV(ctx context.Context, content []byte) error {
-	// In production implementation:
-	// 1. Connect to ClamAV daemon via TCP or UNIX socket
-	// 2. Send file for scanning
-	// 3. Receive scan result
-	// 4. Parse and return result
+	// Create ClamAV client
+	client := clamd.NewClamd(s.endpoint)
 
-	// Placeholder implementation - always return clean
-	// TODO: Implement actual ClamAV connection
-	return nil
+	// Create a channel to receive scan results
+	resultChan := client.ScanStream(ctx, bytes.NewReader(content), nil)
+
+	// Wait for scan result with timeout
+	select {
+	case result := <-resultChan:
+		if result == nil {
+			return fmt.Errorf("clamAV scan returned no result")
+		}
+
+		// Check scan status
+		if result.Status == clamd.RES_FOUND {
+			return fmt.Errorf("malware detected: %s", result.Description)
+		} else if result.Status == clamd.RES_ERROR {
+			return fmt.Errorf("clamAV scan error: %s", result.Description)
+		} else if result.Status == clamd.RES_PARSE_ERROR {
+			return fmt.Errorf("clamAV parse error: %s", result.Description)
+		}
+		// RES_OK means file is clean
+		return nil
+
+	case <-ctx.Done():
+		return fmt.Errorf("clamAV scan timeout: %v", ctx.Err())
+	}
 }
 
 // GetScanResult retrieves a scan result by ID
@@ -218,10 +239,10 @@ func (s *VirusTotalScanner) QuarantineFile(ctx context.Context, scanID string) e
 
 // LocalScanner implements a basic local malware scanner
 type LocalScanner struct {
-	enabled          bool
-	maxFileSize      int64
-	quarantinePath   string
-	scanTimeout      time.Duration
+	enabled        bool
+	maxFileSize    int64
+	quarantinePath string
+	scanTimeout    time.Duration
 }
 
 // NewLocalScanner creates a new local scanner instance
@@ -347,6 +368,7 @@ func DefaultSecureFileUploadConfig() SecureFileUploadConfig {
 		SanitizeFilename:  true,
 		Required:          false,
 		MalwareScanner:    NewLocalScanner(false, 10*1024*1024, "/tmp/quarantine", 30*time.Second),
+		FailOpen:          false, // Default to fail-closed (block upload if scanner fails)
 	}
 }
 
@@ -387,7 +409,7 @@ func validateFile(fileHeader *multipart.FileHeader, config SecureFileUploadConfi
 			"File size exceeds limit",
 			map[string]interface{}{
 				"max_size":  config.MaxFileSize,
-				"file_size":  fileHeader.Size,
+				"file_size": fileHeader.Size,
 			},
 		)
 	}
@@ -438,7 +460,7 @@ func validateFile(fileHeader *multipart.FileHeader, config SecureFileUploadConfi
 
 	// Scan for malware if enabled and scanner is configured
 	if config.ScanForMalware && config.MalwareScanner != nil {
-		if err := scanForMalware(fileHeader, config.MalwareScanner); err != nil {
+		if err := scanForMalware(fileHeader, config.MalwareScanner, config.FailOpen); err != nil {
 			return err
 		}
 	}
@@ -505,7 +527,7 @@ func validateImageDimensions(reader io.Reader, config SecureFileUploadConfig) er
 }
 
 // scanForMalware scans file for malware using configured scanner
-func scanForMalware(fileHeader *multipart.FileHeader, scanner MalwareScanner) error {
+func scanForMalware(fileHeader *multipart.FileHeader, scanner MalwareScanner, failOpen bool) error {
 	// Open file for scanning
 	file, err := fileHeader.Open()
 	if err != nil {
@@ -520,8 +542,15 @@ func scanForMalware(fileHeader *multipart.FileHeader, scanner MalwareScanner) er
 	// Scan file
 	result, err := scanner.ScanFile(ctx, file, fileHeader.Filename)
 	if err != nil {
+		// Handle scanner failure based on fail_open configuration
+		if failOpen {
+			// Fail-open: Log warning but allow the file upload
+			fmt.Printf("WARNING: Malware scan failed but allowing upload (fail-open mode): %v\n", err)
+			return nil
+		}
+		// Fail-closed: Block the file upload
 		return errors.NewInternalErrorWithDetails(
-			"Malware scan failed",
+			"Malware scan failed - upload blocked (fail-closed mode)",
 			map[string]interface{}{
 				"error": err.Error(),
 			},
@@ -530,6 +559,14 @@ func scanForMalware(fileHeader *multipart.FileHeader, scanner MalwareScanner) er
 
 	// Check if file is clean
 	if !result.IsClean {
+		// Delete temporary file if it exists
+		if tempFile, ok := file.(*os.File); ok {
+			tempPath := tempFile.Name()
+			if err := os.Remove(tempPath); err != nil {
+				fmt.Printf("Failed to delete temporary file %s: %v\n", tempPath, err)
+			}
+		}
+
 		// Quarantine the file
 		if err := scanner.QuarantineFile(ctx, result.ScanID); err != nil {
 			// Log quarantine failure but still reject the file
