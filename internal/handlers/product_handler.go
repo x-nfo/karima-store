@@ -22,14 +22,18 @@ func NewProductHandler(productService services.ProductService, mediaService *ser
 }
 
 // CreateProduct creates a new product
-// @Summary Create a new product
-// @Description Create a new product with the provided details
+// @Summary Create a new product (Admin only)
+// @Description Create a new product with the provided details. **Admin only**: Requires authentication with admin role.
 // @Tags products
 // @Accept json
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param product body models.Product true "Product object"
 // @Success 201 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Insufficient permissions (admin role required)"
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/products [post]
 func (h *ProductHandler) CreateProduct(c *fiber.Ctx) error {
@@ -174,15 +178,19 @@ func (h *ProductHandler) GetProducts(c *fiber.Ctx) error {
 }
 
 // UpdateProduct updates an existing product
-// @Summary Update product
-// @Description Update an existing product by ID
+// @Summary Update product (Admin only)
+// @Description Update an existing product by ID. **Admin only**: Requires authentication with admin role.
 // @Tags products
 // @Accept json
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param id path int true "Product ID"
 // @Param product body models.Product true "Product object"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Insufficient permissions (admin role required)"
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/products/{id} [put]
@@ -215,12 +223,16 @@ func (h *ProductHandler) UpdateProduct(c *fiber.Ctx) error {
 }
 
 // DeleteProduct deletes a product
-// @Summary Delete product
-// @Description Delete a product by ID
+// @Summary Delete product (Admin only)
+// @Description Delete a product by ID. **Admin only**: Requires authentication with admin role.
 // @Tags products
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param id path int true "Product ID"
 // @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Insufficient permissions (admin role required)"
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/products/{id} [delete]
@@ -249,15 +261,19 @@ func (h *ProductHandler) DeleteProduct(c *fiber.Ctx) error {
 }
 
 // UpdateProductStock updates product stock
-// @Summary Update product stock
-// @Description Update the stock quantity for a product
+// @Summary Update product stock (Admin only)
+// @Description Update the stock quantity for a product. **Admin only**: Requires authentication with admin role.
 // @Tags products
 // @Accept json
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param id path int true "Product ID"
 // @Param body body map[string]int true "Stock update object"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Insufficient permissions (admin role required)"
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/v1/products/{id}/stock [patch]
 func (h *ProductHandler) UpdateProductStock(c *fiber.Ctx) error {
@@ -415,17 +431,21 @@ func (h *ProductHandler) GetFeaturedProducts(c *fiber.Ctx) error {
 }
 
 // UploadProductMedia uploads media for a product
-// @Summary Upload product media
-// @Description Upload an image file for a product
+// @Summary Upload product media (Admin only)
+// @Description Upload an image file for a product. **Admin only**: Requires authentication with admin role.
 // @Tags products
 // @Accept multipart/form-data
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param product_id formData int true "Product ID"
 // @Param file formData file true "Image file"
 // @Param position formData int false "Position"
 // @Param is_primary formData bool false "Is primary"
 // @Success 200 {object} map[string]interface{} "Upload response"
 // @Failure 400 {object} map[string]interface{} "Bad request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Insufficient permissions (admin role required)"
 // @Failure 404 {object} map[string]interface{} "Product not found"
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /api/v1/products/{id}/media [post]

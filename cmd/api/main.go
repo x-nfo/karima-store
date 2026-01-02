@@ -23,6 +23,45 @@ import (
 	"github.com/karima-store/internal/utils"
 )
 
+// @title Karima Store API
+// @version 1.0
+// @description Karima Store E-commerce API with Ory Kratos Authentication
+// @description
+// @description ## Authentication
+// @description
+// @description This API uses **Ory Kratos** for session-based authentication.
+// @description
+// @description ### For Web/Browser Clients:
+// @description 1. Login via Kratos UI at http://127.0.0.1:4455/login
+// @description 2. Session cookie (ory_kratos_session) will be set automatically
+// @description 3. Make API requests with the cookie included
+// @description
+// @description ### For API/Mobile Clients:
+// @description 1. Obtain session token from Kratos login flow
+// @description 2. Include token in requests:
+// @description    - Method 1: Authorization: Bearer <session_token>
+// @description    - Method 2: X-Session-Token: <session_token> header
+// @description
+// @description ### Authorization Levels:
+// @description - **Public**: No authentication required (GET endpoints for browsing)
+// @description - **Authenticated**: Valid Kratos session required
+// @description - **Admin**: Valid session + admin role in identity traits
+// @termsOfService http://swagger.io/terms/
+// @contact.name Karima Store API Support
+// @contact.email support@karimastore.com
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+// @host localhost:8080
+// @BasePath /api/v1
+// @securityDefinitions.apikey KratosSession
+// @in header
+// @name Authorization
+// @description Ory Kratos session token (Bearer token or X-Session-Token header)
+// @securityDefinitions.apikey KratosSessionCookie
+// @in header
+// @name Cookie
+// @description Ory Kratos session cookie (ory_kratos_session)
+
 func main() {
 	// Load configuration
 	cfg := config.Load()
@@ -147,6 +186,13 @@ func main() {
 	)
 
 	// Health check endpoint
+	// @Summary Health check
+	// @Description Check if the API server and its dependencies are running properly
+	// @Tags health
+	// @Produce json
+	// @Success 200 {object} map[string]interface{} "Health check response with status, database, redis, environment, and timestamp"
+	// @Failure 503 {object} map[string]interface{} "Service unavailable when database or redis is down"
+	// @Router /health [get]
 	app.Get("/health", func(c *fiber.Ctx) error {
 		// Check database
 		if err := checkDatabase(db); err != nil {

@@ -23,15 +23,19 @@ func NewWhatsAppHandler(notificationService *services.NotificationService) *What
 }
 
 // SendWhatsAppMessage sends a message via WhatsApp
-// @Summary Send WhatsApp message
-// @Description Send a message to a WhatsApp number
+// @Summary Send WhatsApp message (Admin only)
+// @Description Send a message to a WhatsApp number. **Admin only**: Requires authentication with admin role.
 // @Tags whatsapp
 // @Accept json
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param phoneNumber query string true "Phone number in E.164 format"
 // @Param message body string true "Message content"
 // @Success 200 {object} map[string]interface{} "Success response"
 // @Failure 400 {object} map[string]interface{} "Bad request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Insufficient permissions (admin role required)"
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /api/v1/whatsapp/send [post]
 func (h *WhatsAppHandler) SendWhatsAppMessage(c *fiber.Ctx) error {
@@ -76,14 +80,19 @@ func (h *WhatsAppHandler) SendWhatsAppMessage(c *fiber.Ctx) error {
 }
 
 // SendOrderCreatedNotification sends order created notification
-// @Summary Send order created notification
-// @Description Send notification when order is created
+// @Summary Send order created notification (Admin only)
+// @Description Send notification when order is created. **Admin only**: Requires authentication with admin role.
 // @Tags whatsapp
 // @Accept json
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param order_id path uint true "Order ID"
 // @Success 200 {object} map[string]interface{} "Success response"
 // @Failure 400 {object} map[string]interface{} "Bad request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Insufficient permissions (admin role required)"
+// @Failure 404 {object} map[string]interface{} "Order not found"
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /api/v1/whatsapp/order-created/{order_id} [get]
 func (h *WhatsAppHandler) SendOrderCreatedNotification(c *fiber.Ctx) error {
@@ -114,7 +123,7 @@ func (h *WhatsAppHandler) SendOrderCreatedNotification(c *fiber.Ctx) error {
 			"code":    500,
 		})
 	}
-	
+
 	order, err := repository.NewOrderRepository(db).GetByID(uint(orderID))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -143,14 +152,19 @@ func (h *WhatsAppHandler) SendOrderCreatedNotification(c *fiber.Ctx) error {
 }
 
 // SendPaymentSuccessNotification sends payment success notification
-// @Summary Send payment success notification
-// @Description Send notification when payment is successful
+// @Summary Send payment success notification (Admin only)
+// @Description Send notification when payment is successful. **Admin only**: Requires authentication with admin role.
 // @Tags whatsapp
 // @Accept json
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param order_id path uint true "Order ID"
 // @Success 200 {object} map[string]interface{} "Success response"
 // @Failure 400 {object} map[string]interface{} "Bad request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Insufficient permissions (admin role required)"
+// @Failure 404 {object} map[string]interface{} "Order not found"
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /api/v1/whatsapp/payment-success/{order_id} [get]
 func (h *WhatsAppHandler) SendPaymentSuccessNotification(c *fiber.Ctx) error {
@@ -211,7 +225,7 @@ func (h *WhatsAppHandler) SendPaymentSuccessNotification(c *fiber.Ctx) error {
 
 // ProcessWhatsAppWebhook handles WhatsApp webhook events
 // @Summary Process WhatsApp webhook
-// @Description Handle incoming webhook events from WhatsApp
+// @Description Handle incoming webhook events from WhatsApp (public endpoint, no authentication required)
 // @Tags whatsapp
 // @Accept json
 // @Produce json
@@ -250,7 +264,7 @@ func (h *WhatsAppHandler) ProcessWhatsAppWebhook(c *fiber.Ctx) error {
 
 // GetWhatsAppStatus returns WhatsApp service status
 // @Summary Get WhatsApp status
-// @Description Get current status of WhatsApp service
+// @Description Get current status of WhatsApp service (public endpoint, no authentication required)
 // @Tags whatsapp
 // @Accept json
 // @Produce json
@@ -276,15 +290,19 @@ func (h *WhatsAppHandler) GetWhatsAppStatus(c *fiber.Ctx) error {
 }
 
 // SendTestWhatsAppMessage sends a test message to verify WhatsApp integration
-// @Summary Send test WhatsApp message
-// @Description Send a test message to verify WhatsApp integration
+// @Summary Send test WhatsApp message (Admin only)
+// @Description Send a test message to verify WhatsApp integration. **Admin only**: Requires authentication with admin role.
 // @Tags whatsapp
 // @Accept json
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param phoneNumber query string true "Phone number in E.164 format"
 // @Param message body string true "Message content"
 // @Success 200 {object} map[string]interface{} "Success response"
 // @Failure 400 {object} map[string]interface{} "Bad request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Insufficient permissions (admin role required)"
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /api/v1/whatsapp/test [post]
 func (h *WhatsAppHandler) SendTestWhatsAppMessage(c *fiber.Ctx) error {

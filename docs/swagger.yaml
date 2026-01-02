@@ -1,3 +1,4 @@
+basePath: /api/v1
 definitions:
   handlers.CancelOrderRequest:
     properties:
@@ -898,8 +899,39 @@ definitions:
         format: float64
         type: number
     type: object
+host: localhost:8080
 info:
-  contact: {}
+  contact:
+    email: support@karimastore.com
+    name: Karima Store API Support
+  description: |-
+    Karima Store E-commerce API with Ory Kratos Authentication
+
+    ## Authentication
+
+    This API uses **Ory Kratos** for session-based authentication.
+
+    ### For Web/Browser Clients:
+    1. Login via Kratos UI at http://127.0.0.1:4455/login
+    2. Session cookie (ory_kratos_session) will be set automatically
+    3. Make API requests with the cookie included
+
+    ### For API/Mobile Clients:
+    1. Obtain session token from Kratos login flow
+    2. Include token in requests:
+    - Method 1: Authorization: Bearer <session_token>
+    - Method 2: X-Session-Token: <session_token> header
+
+    ### Authorization Levels:
+    - **Public**: No authentication required (GET endpoints for browsing)
+    - **Authenticated**: Valid Kratos session required
+    - **Admin**: Valid session + admin role in identity traits
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Karima Store API
+  version: "1.0"
 paths:
   /api/v1/categories:
     get:
@@ -1007,11 +1039,21 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Server error during order creation or payment token generation
           schema:
             additionalProperties: true
             type: object
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
       summary: Create Order and Generate Payment Token
       tags:
       - payment
@@ -1119,8 +1161,21 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
       security:
-      - Bearer: []
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
       summary: Get user orders
       tags:
       - orders
@@ -1143,8 +1198,26 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Not authorized to access this order'
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Order not found
+          schema:
+            additionalProperties: true
+            type: object
       security:
-      - Bearer: []
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
       summary: Get order details
       tags:
       - orders
@@ -1152,7 +1225,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get order status by order number (public)
+      description: Get order status by order number (public endpoint, no authentication
+        required)
       parameters:
       - description: Order Number
         in: query
@@ -1164,6 +1238,16 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 'Bad request: Order number is required'
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Order not found
           schema:
             additionalProperties: true
             type: object
@@ -1493,7 +1577,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new product with the provided details
+      description: 'Create a new product with the provided details. **Admin only**:
+        Requires authentication with admin role.'
       parameters:
       - description: Product object
         in: body
@@ -1514,12 +1599,27 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient permissions (admin role required)'
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal Server Error
           schema:
             additionalProperties: true
             type: object
-      summary: Create a new product
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
+      summary: Create a new product (Admin only)
       tags:
       - products
   /api/v1/products/:product_id/media:
@@ -1598,7 +1698,8 @@ paths:
       - media
   /api/v1/products/{id}:
     delete:
-      description: Delete a product by ID
+      description: 'Delete a product by ID. **Admin only**: Requires authentication
+        with admin role.'
       parameters:
       - description: Product ID
         in: path
@@ -1613,6 +1714,16 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient permissions (admin role required)'
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
@@ -1623,7 +1734,12 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      summary: Delete product
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
+      summary: Delete product (Admin only)
       tags:
       - products
     get:
@@ -1658,7 +1774,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update an existing product by ID
+      description: 'Update an existing product by ID. **Admin only**: Requires authentication
+        with admin role.'
       parameters:
       - description: Product ID
         in: path
@@ -1684,6 +1801,16 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient permissions (admin role required)'
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
@@ -1694,7 +1821,12 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      summary: Update product
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
+      summary: Update product (Admin only)
       tags:
       - products
   /api/v1/products/{id}/media:
@@ -1732,7 +1864,8 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Upload an image file for a product
+      description: 'Upload an image file for a product. **Admin only**: Requires authentication
+        with admin role.'
       parameters:
       - description: Product ID
         in: formData
@@ -1765,6 +1898,16 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient permissions (admin role required)'
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Product not found
           schema:
@@ -1775,14 +1918,20 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      summary: Upload product media
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
+      summary: Upload product media (Admin only)
       tags:
       - products
   /api/v1/products/{id}/stock:
     patch:
       consumes:
       - application/json
-      description: Update the stock quantity for a product
+      description: 'Update the stock quantity for a product. **Admin only**: Requires
+        authentication with admin role.'
       parameters:
       - description: Product ID
         in: path
@@ -1810,12 +1959,27 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient permissions (admin role required)'
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
             additionalProperties: true
             type: object
-      summary: Update product stock
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
+      summary: Update product stock (Admin only)
       tags:
       - products
   /api/v1/products/{product_id}/variants:
@@ -2128,7 +2292,8 @@ paths:
       - variants
   /api/v1/variants/{id}:
     delete:
-      description: Delete a variant by ID
+      description: 'Delete a variant by ID. **Admin only**: Requires authentication
+        with admin role.'
       parameters:
       - description: Variant ID
         in: path
@@ -2143,6 +2308,16 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient permissions (admin role required)'
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
@@ -2153,7 +2328,12 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      summary: Delete variant
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
+      summary: Delete variant (Admin only)
       tags:
       - variants
     get:
@@ -2188,7 +2368,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update an existing variant by ID
+      description: 'Update an existing variant by ID. **Admin only**: Requires authentication
+        with admin role.'
       parameters:
       - description: Variant ID
         in: path
@@ -2214,6 +2395,16 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient permissions (admin role required)'
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
@@ -2224,14 +2415,20 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      summary: Update variant
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
+      summary: Update variant (Admin only)
       tags:
       - variants
   /api/v1/variants/{id}/stock:
     patch:
       consumes:
       - application/json
-      description: Update the stock quantity for a variant
+      description: 'Update the stock quantity for a variant. **Admin only**: Requires
+        authentication with admin role.'
       parameters:
       - description: Variant ID
         in: path
@@ -2259,12 +2456,27 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient permissions (admin role required)'
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
             additionalProperties: true
             type: object
-      summary: Update variant stock
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
+      summary: Update variant stock (Admin only)
       tags:
       - variants
   /api/v1/variants/sku/{sku}:
@@ -2301,7 +2513,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Send notification when order is created
+      description: 'Send notification when order is created. **Admin only**: Requires
+        authentication with admin role.'
       parameters:
       - description: Order ID
         in: path
@@ -2321,19 +2534,40 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient permissions (admin role required)'
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Order not found
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal server error
           schema:
             additionalProperties: true
             type: object
-      summary: Send order created notification
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
+      summary: Send order created notification (Admin only)
       tags:
       - whatsapp
   /api/v1/whatsapp/payment-success/{order_id}:
     get:
       consumes:
       - application/json
-      description: Send notification when payment is successful
+      description: 'Send notification when payment is successful. **Admin only**:
+        Requires authentication with admin role.'
       parameters:
       - description: Order ID
         in: path
@@ -2353,19 +2587,40 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient permissions (admin role required)'
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Order not found
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal server error
           schema:
             additionalProperties: true
             type: object
-      summary: Send payment success notification
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
+      summary: Send payment success notification (Admin only)
       tags:
       - whatsapp
   /api/v1/whatsapp/send:
     post:
       consumes:
       - application/json
-      description: Send a message to a WhatsApp number
+      description: 'Send a message to a WhatsApp number. **Admin only**: Requires
+        authentication with admin role.'
       parameters:
       - description: Phone number in E.164 format
         in: query
@@ -2391,19 +2646,35 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient permissions (admin role required)'
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal server error
           schema:
             additionalProperties: true
             type: object
-      summary: Send WhatsApp message
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
+      summary: Send WhatsApp message (Admin only)
       tags:
       - whatsapp
   /api/v1/whatsapp/status:
     get:
       consumes:
       - application/json
-      description: Get current status of WhatsApp service
+      description: Get current status of WhatsApp service (public endpoint, no authentication
+        required)
       produces:
       - application/json
       responses:
@@ -2424,7 +2695,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Send a test message to verify WhatsApp integration
+      description: 'Send a test message to verify WhatsApp integration. **Admin only**:
+        Requires authentication with admin role.'
       parameters:
       - description: Phone number in E.164 format
         in: query
@@ -2450,19 +2722,35 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 'Unauthorized: No valid session or session expired'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient permissions (admin role required)'
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal server error
           schema:
             additionalProperties: true
             type: object
-      summary: Send test WhatsApp message
+      security:
+      - 'KratosSession ':
+        - ""
+      - 'KratosSessionCookie ':
+        - ""
+      summary: Send test WhatsApp message (Admin only)
       tags:
       - whatsapp
   /api/v1/whatsapp/webhook:
     post:
       consumes:
       - application/json
-      description: Handle incoming webhook events from WhatsApp
+      description: Handle incoming webhook events from WhatsApp (public endpoint,
+        no authentication required)
       parameters:
       - description: Webhook data
         in: body
@@ -2668,4 +2956,15 @@ paths:
       summary: Show Swagger UI
       tags:
       - Documentation
+securityDefinitions:
+  KratosSession:
+    description: Ory Kratos session token (Bearer token or X-Session-Token header)
+    in: header
+    name: Authorization
+    type: apiKey
+  KratosSessionCookie:
+    description: Ory Kratos session cookie (ory_kratos_session)
+    in: header
+    name: Cookie
+    type: apiKey
 swagger: "2.0"

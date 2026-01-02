@@ -23,9 +23,12 @@ func NewCheckoutHandler(checkoutService *services.CheckoutService) *CheckoutHand
 // @Tags payment
 // @Accept json
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param checkout body models.CheckoutRequest true "Checkout request with items and shipping information"
 // @Success 200 {object} map[string]interface{} "Success response with order number, snap token, and payment URL"
 // @Failure 400 {object} map[string]interface{} "Invalid request body"
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
 // @Failure 500 {object} map[string]interface{} "Server error during order creation or payment token generation"
 // @Router /api/v1/checkout [post]
 func (h *CheckoutHandler) Checkout(c *fiber.Ctx) error {
@@ -66,8 +69,6 @@ func (h *CheckoutHandler) PaymentWebhook(c *fiber.Ctx) error {
 	if err := h.checkoutService.ProcessPaymentNotification(&notification); err != nil {
 		return utils.SendError(c, fiber.StatusInternalServerError, err.Error(), nil)
 	}
-
-	return c.SendStatus(fiber.StatusOK)
 
 	return c.SendStatus(fiber.StatusOK)
 }

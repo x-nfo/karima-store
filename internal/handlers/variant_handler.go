@@ -153,15 +153,19 @@ func (h *VariantHandler) GetVariantsByProductID(c *fiber.Ctx) error {
 }
 
 // UpdateVariant updates an existing variant
-// @Summary Update variant
-// @Description Update an existing variant by ID
+// @Summary Update variant (Admin only)
+// @Description Update an existing variant by ID. **Admin only**: Requires authentication with admin role.
 // @Tags variants
 // @Accept json
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param id path int true "Variant ID"
 // @Param variant body models.ProductVariant true "Variant object"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Insufficient permissions (admin role required)"
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/variants/{id} [put]
@@ -209,12 +213,16 @@ func (h *VariantHandler) UpdateVariant(c *fiber.Ctx) error {
 }
 
 // DeleteVariant deletes a variant
-// @Summary Delete variant
-// @Description Delete a variant by ID
+// @Summary Delete variant (Admin only)
+// @Description Delete a variant by ID. **Admin only**: Requires authentication with admin role.
 // @Tags variants
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param id path int true "Variant ID"
 // @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Insufficient permissions (admin role required)"
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/variants/{id} [delete]
@@ -243,15 +251,19 @@ func (h *VariantHandler) DeleteVariant(c *fiber.Ctx) error {
 }
 
 // UpdateVariantStock updates variant stock
-// @Summary Update variant stock
-// @Description Update the stock quantity for a variant
+// @Summary Update variant stock (Admin only)
+// @Description Update the stock quantity for a variant. **Admin only**: Requires authentication with admin role.
 // @Tags variants
 // @Accept json
 // @Produce json
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param id path int true "Variant ID"
 // @Param body body map[string]int true "Stock update object"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Insufficient permissions (admin role required)"
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/v1/variants/{id}/stock [patch]
 func (h *VariantHandler) UpdateVariantStock(c *fiber.Ctx) error {

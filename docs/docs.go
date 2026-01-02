@@ -9,7 +9,15 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "Karima Store API Support",
+            "email": "support@karimastore.com"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -131,6 +139,18 @@ const docTemplate = `{
         },
         "/api/v1/checkout": {
             "post": {
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
                 "description": "Creates a new order with items, calculates pricing including shipping and tax, then generates Midtrans Snap payment token. Returns order details and payment URL.",
                 "consumes": [
                     "application/json"
@@ -163,6 +183,13 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Invalid request body",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -302,7 +329,14 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "Bearer": []
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
                     }
                 ],
                 "description": "Get list of orders for the authenticated user",
@@ -337,13 +371,27 @@ const docTemplate = `{
                             "type": "object",
                             "additionalProperties": true
                         }
+                    },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
                     }
                 }
             }
         },
         "/api/v1/orders/track": {
             "get": {
-                "description": "Get order status by order number (public)",
+                "description": "Get order status by order number (public endpoint, no authentication required)",
                 "consumes": [
                     "application/json"
                 ],
@@ -370,6 +418,20 @@ const docTemplate = `{
                             "type": "object",
                             "additionalProperties": true
                         }
+                    },
+                    "400": {
+                        "description": "Bad request: Order number is required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Order not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
                     }
                 }
             }
@@ -378,7 +440,14 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "Bearer": []
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
                     }
                 ],
                 "description": "Get details of a specific order",
@@ -404,6 +473,27 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Not authorized to access this order",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Order not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -877,7 +967,19 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new product with the provided details",
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Create a new product with the provided details. **Admin only**: Requires authentication with admin role.",
                 "consumes": [
                     "application/json"
                 ],
@@ -887,7 +989,7 @@ const docTemplate = `{
                 "tags": [
                     "products"
                 ],
-                "summary": "Create a new product",
+                "summary": "Create a new product (Admin only)",
                 "parameters": [
                     {
                         "description": "Product object",
@@ -909,6 +1011,20 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient permissions (admin role required)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1310,7 +1426,19 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Update an existing product by ID",
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Update an existing product by ID. **Admin only**: Requires authentication with admin role.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1320,7 +1448,7 @@ const docTemplate = `{
                 "tags": [
                     "products"
                 ],
-                "summary": "Update product",
+                "summary": "Update product (Admin only)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1354,6 +1482,20 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient permissions (admin role required)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1371,14 +1513,26 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a product by ID",
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Delete a product by ID. **Admin only**: Requires authentication with admin role.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "products"
                 ],
-                "summary": "Delete product",
+                "summary": "Delete product (Admin only)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1391,6 +1545,20 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient permissions (admin role required)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1460,7 +1628,19 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Upload an image file for a product",
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Upload an image file for a product. **Admin only**: Requires authentication with admin role.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1470,7 +1650,7 @@ const docTemplate = `{
                 "tags": [
                     "products"
                 ],
-                "summary": "Upload product media",
+                "summary": "Upload product media (Admin only)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1514,6 +1694,20 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient permissions (admin role required)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Product not found",
                         "schema": {
@@ -1533,7 +1727,19 @@ const docTemplate = `{
         },
         "/api/v1/products/{id}/stock": {
             "patch": {
-                "description": "Update the stock quantity for a product",
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Update the stock quantity for a product. **Admin only**: Requires authentication with admin role.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1543,7 +1749,7 @@ const docTemplate = `{
                 "tags": [
                     "products"
                 ],
-                "summary": "Update product stock",
+                "summary": "Update product stock (Admin only)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1575,6 +1781,20 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient permissions (admin role required)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1892,7 +2112,19 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Update an existing variant by ID",
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Update an existing variant by ID. **Admin only**: Requires authentication with admin role.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1902,7 +2134,7 @@ const docTemplate = `{
                 "tags": [
                     "variants"
                 ],
-                "summary": "Update variant",
+                "summary": "Update variant (Admin only)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1936,6 +2168,20 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient permissions (admin role required)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1953,14 +2199,26 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a variant by ID",
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Delete a variant by ID. **Admin only**: Requires authentication with admin role.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "variants"
                 ],
-                "summary": "Delete variant",
+                "summary": "Delete variant (Admin only)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1973,6 +2231,20 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient permissions (admin role required)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1997,7 +2269,19 @@ const docTemplate = `{
         },
         "/api/v1/variants/{id}/stock": {
             "patch": {
-                "description": "Update the stock quantity for a variant",
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Update the stock quantity for a variant. **Admin only**: Requires authentication with admin role.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2007,7 +2291,7 @@ const docTemplate = `{
                 "tags": [
                     "variants"
                 ],
-                "summary": "Update variant stock",
+                "summary": "Update variant stock (Admin only)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2044,6 +2328,20 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient permissions (admin role required)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -2056,7 +2354,19 @@ const docTemplate = `{
         },
         "/api/v1/whatsapp/order-created/{order_id}": {
             "get": {
-                "description": "Send notification when order is created",
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Send notification when order is created. **Admin only**: Requires authentication with admin role.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2066,7 +2376,7 @@ const docTemplate = `{
                 "tags": [
                     "whatsapp"
                 ],
-                "summary": "Send order created notification",
+                "summary": "Send order created notification (Admin only)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2086,6 +2396,27 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient permissions (admin role required)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Order not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2103,7 +2434,19 @@ const docTemplate = `{
         },
         "/api/v1/whatsapp/payment-success/{order_id}": {
             "get": {
-                "description": "Send notification when payment is successful",
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Send notification when payment is successful. **Admin only**: Requires authentication with admin role.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2113,7 +2456,7 @@ const docTemplate = `{
                 "tags": [
                     "whatsapp"
                 ],
-                "summary": "Send payment success notification",
+                "summary": "Send payment success notification (Admin only)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2138,6 +2481,27 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient permissions (admin role required)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Order not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
@@ -2150,7 +2514,19 @@ const docTemplate = `{
         },
         "/api/v1/whatsapp/send": {
             "post": {
-                "description": "Send a message to a WhatsApp number",
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Send a message to a WhatsApp number. **Admin only**: Requires authentication with admin role.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2160,7 +2536,7 @@ const docTemplate = `{
                 "tags": [
                     "whatsapp"
                 ],
-                "summary": "Send WhatsApp message",
+                "summary": "Send WhatsApp message (Admin only)",
                 "parameters": [
                     {
                         "type": "string",
@@ -2194,6 +2570,20 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient permissions (admin role required)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
@@ -2206,7 +2596,7 @@ const docTemplate = `{
         },
         "/api/v1/whatsapp/status": {
             "get": {
-                "description": "Get current status of WhatsApp service",
+                "description": "Get current status of WhatsApp service (public endpoint, no authentication required)",
                 "consumes": [
                     "application/json"
                 ],
@@ -2237,7 +2627,19 @@ const docTemplate = `{
         },
         "/api/v1/whatsapp/test": {
             "post": {
-                "description": "Send a test message to verify WhatsApp integration",
+                "security": [
+                    {
+                        "KratosSession ": [
+                            ""
+                        ]
+                    },
+                    {
+                        "KratosSessionCookie ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Send a test message to verify WhatsApp integration. **Admin only**: Requires authentication with admin role.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2247,7 +2649,7 @@ const docTemplate = `{
                 "tags": [
                     "whatsapp"
                 ],
-                "summary": "Send test WhatsApp message",
+                "summary": "Send test WhatsApp message (Admin only)",
                 "parameters": [
                     {
                         "type": "string",
@@ -2281,6 +2683,20 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized: No valid session or session expired",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient permissions (admin role required)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
@@ -2293,7 +2709,7 @@ const docTemplate = `{
         },
         "/api/v1/whatsapp/webhook": {
             "post": {
-                "description": "Handle incoming webhook events from WhatsApp",
+                "description": "Handle incoming webhook events from WhatsApp (public endpoint, no authentication required)",
                 "consumes": [
                     "application/json"
                 ],
@@ -3908,17 +4324,31 @@ const docTemplate = `{
                 }
             }
         }
+    },
+    "securityDefinitions": {
+        "KratosSession": {
+            "description": "Ory Kratos session token (Bearer token or X-Session-Token header)",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        },
+        "KratosSessionCookie": {
+            "description": "Ory Kratos session cookie (ory_kratos_session)",
+            "type": "apiKey",
+            "name": "Cookie",
+            "in": "header"
+        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
+	Version:          "1.0",
+	Host:             "localhost:8080",
+	BasePath:         "/api/v1",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "Karima Store API",
+	Description:      "Karima Store E-commerce API with Ory Kratos Authentication\n\n## Authentication\n\nThis API uses **Ory Kratos** for session-based authentication.\n\n### For Web/Browser Clients:\n1. Login via Kratos UI at http://127.0.0.1:4455/login\n2. Session cookie (ory_kratos_session) will be set automatically\n3. Make API requests with the cookie included\n\n### For API/Mobile Clients:\n1. Obtain session token from Kratos login flow\n2. Include token in requests:\n- Method 1: Authorization: Bearer <session_token>\n- Method 2: X-Session-Token: <session_token> header\n\n### Authorization Levels:\n- **Public**: No authentication required (GET endpoints for browsing)\n- **Authenticated**: Valid Kratos session required\n- **Admin**: Valid session + admin role in identity traits",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

@@ -21,10 +21,13 @@ func NewOrderHandler(orderService services.OrderService) *OrderHandler {
 // @Tags orders
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param page query int false "Page number"
 // @Param limit query int false "Items per page"
 // @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /api/v1/orders [get]
 func (h *OrderHandler) GetOrders(c *fiber.Ctx) error {
 	// Assuming auth middleware sets "user_id"
@@ -72,9 +75,13 @@ func (h *OrderHandler) GetOrders(c *fiber.Ctx) error {
 // @Tags orders
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security KratosSession []
+// @Security KratosSessionCookie []
 // @Param id path int true "Order ID"
 // @Success 200 {object} map[string]interface{} // Using map instead of models.Order for simplicity in swagger for now
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 403 {object} map[string]interface{} "Forbidden: Not authorized to access this order"
+// @Failure 404 {object} map[string]interface{} "Order not found"
 // @Router /api/v1/orders/{id} [get]
 func (h *OrderHandler) GetOrder(c *fiber.Ctx) error {
 	uID := c.Locals("user_id")
@@ -110,12 +117,14 @@ func (h *OrderHandler) GetOrder(c *fiber.Ctx) error {
 
 // TrackOrder godoc
 // @Summary Track order
-// @Description Get order status by order number (public)
+// @Description Get order status by order number (public endpoint, no authentication required)
 // @Tags orders
 // @Accept json
 // @Produce json
 // @Param order_number query string true "Order Number"
 // @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{} "Bad request: Order number is required"
+// @Failure 404 {object} map[string]interface{} "Order not found"
 // @Router /api/v1/orders/track [get]
 func (h *OrderHandler) TrackOrder(c *fiber.Ctx) error {
 	orderNumber := c.Query("order_number")
