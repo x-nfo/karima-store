@@ -1,17 +1,15 @@
 version: v0.10.1
 
-dsn: memory
+dsn: ${KRATOS_DSN}
 
 serve:
   public:
-    base_url: http://127.0.0.1:4433/
+    base_url: ${KRATOS_PUBLIC_BASE_URL}
     cors:
       enabled: true
       allowed_origins:
-        - http://127.0.0.1:3000
-        - http://localhost:3000
-        - http://127.0.0.1:4455
-        - http://localhost:4455
+        - https://karima.com
+        - https://admin.ks-backend.cloud
       allowed_methods:
         - POST
         - GET
@@ -26,13 +24,14 @@ serve:
         - Content-Type
         - Set-Cookie
   admin:
-    base_url: http://127.0.0.1:4434/
+    base_url: ${KRATOS_ADMIN_BASE_URL}
 
 selfservice:
-  default_browser_return_url: http://127.0.0.1:4455/
+  default_browser_return_url: ${KRATOS_DEFAULT_RETURN_URL}
   allowed_return_urls:
-    - http://127.0.0.1:4455/
-    - http://localhost:4455/
+    - ${KRATOS_DEFAULT_RETURN_URL}
+    - https://karima.com/
+    - https://admin.ks-backend.cloud/
 
   methods:
     password:
@@ -42,48 +41,48 @@ selfservice:
 
   flows:
     error:
-      ui_url: http://127.0.0.1:4455/error
+      ui_url: ${KRATOS_UI_URL}/error
 
     settings:
-      ui_url: http://127.0.0.1:4455/settings
+      ui_url: ${KRATOS_UI_URL}/settings
       privileged_session_max_age: 15m
 
     recovery:
       enabled: true
-      ui_url: http://127.0.0.1:4455/recovery
+      ui_url: ${KRATOS_UI_URL}/recovery
 
     verification:
       enabled: true
-      ui_url: http://127.0.0.1:4455/verification
+      ui_url: ${KRATOS_UI_URL}/verification
       after:
-        default_browser_return_url: http://127.0.0.1:4455/
+        default_browser_return_url: ${KRATOS_DEFAULT_RETURN_URL}
 
     logout:
       after:
-        default_browser_return_url: http://127.0.0.1:4455/login
+        default_browser_return_url: ${KRATOS_UI_URL}/login
 
     login:
-      ui_url: http://127.0.0.1:4455/login
+      ui_url: ${KRATOS_UI_URL}/login
       lifespan: 10m
 
     registration:
       lifespan: 10m
-      ui_url: http://127.0.0.1:4455/registration
+      ui_url: ${KRATOS_UI_URL}/registration
       after:
         password:
           hooks:
             - hook: session
 
 log:
-  level: debug
-  format: text
-  leak_sensitive_values: true
+  level: ${KRATOS_LOG_LEVEL:-info}
+  format: ${KRATOS_LOG_FORMAT:-json}
+  leak_sensitive_values: ${KRATOS_LEAK_SENSITIVE_VALUES:-false}
 
 secrets:
   cookie:
-    - PLEASE-CHANGE-ME-I-AM-VERY-INSECURE
+    - ${KRATOS_SECRET_COOKIE}
   cipher:
-    - 32-LONG-SECRET-MUST-BE-CHANGED
+    - ${KRATOS_SECRET_CIPHER}
 
 identity:
   default_schema_id: default
@@ -93,4 +92,4 @@ identity:
 
 courier:
   smtp:
-    connection_uri: smtps://test:test@mailslurper:4437/?skip_ssl_verify=true
+    connection_uri: ${KRATOS_SMTP_CONNECTION_URI}
