@@ -117,7 +117,9 @@ func (s *CheckoutService) Checkout(req *models.CheckoutRequest) (*models.Checkou
 	}
 
 	// 2. Execution Phase: DB Transaction (Write)
-	// Wraps Stock Deduction and Order Creation in an atomic block.
+	// Wraps Stock Deduction, Order Creation, and Snap Token Generation in an atomic block.
+	// If Snap Token generation fails, the entire transaction will be rolled back automatically.
+	var snapToken *models.MidtransSnapResponse
 	err = s.db.DB().Transaction(func(tx *gorm.DB) error {
 		txProductRepo := s.productRepo.WithTx(tx)
 		txStockLogRepo := s.stockLogRepo.WithTx(tx)
@@ -134,39 +136,18 @@ func (s *CheckoutService) Checkout(req *models.CheckoutRequest) (*models.Checkou
 			return fmt.Errorf("failed to create order: %w", err)
 		}
 
+		// C. Generate Snap Token (External API Call)
+		// If this fails, the entire transaction (stock deduction + order creation) will be rolled back
+		snapToken, err = s.generateSnapToken(order, priceReqItems, req)
+		if err != nil {
+			return fmt.Errorf("failed to generate snap token: %w", err)
+		}
+
 		return nil
 	})
 
 	if err != nil {
 		return nil, err
-	}
-
-	// 3. Post-Transaction: Generate External Payment Token
-	// If this fails, we must explicitly rollback the DB changes (Cancel Order + Restore Stock)
-	// because the Transaction above has already committed.
-	snapToken, err := s.generateSnapToken(order, priceReqItems, req)
-	if err != nil {
-		log.Printf("Failed to generate snap token for order %s: %v. Initiating cleanup...", order.OrderNumber, err)
-
-		// Compensation logic: Fail the order and restore stock
-		cleanupErr := s.db.DB().Transaction(func(tx *gorm.DB) error {
-			txOrderRepo := s.orderRepo.WithTx(tx)
-			txProductRepo := s.productRepo.WithTx(tx)
-			txStockLogRepo := s.stockLogRepo.WithTx(tx)
-
-			order.Status = models.StatusCancelled
-			order.CancelReason = "System Error: Payment Generation Failed"
-			if err := txOrderRepo.Update(order); err != nil {
-				return err
-			}
-			return s.restoreStockWithTx(txProductRepo, txStockLogRepo, order)
-		})
-
-		if cleanupErr != nil {
-			log.Printf("CRITICAL: Failed to cleanup order %s after snap token failure: %v", order.OrderNumber, cleanupErr)
-		}
-
-		return nil, fmt.Errorf("failed to initiate payment gateway: %w", err)
 	}
 
 	// 4. Notifications (Non-blocking)
