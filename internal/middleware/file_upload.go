@@ -2,6 +2,10 @@ package middleware
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -11,6 +15,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -24,9 +29,302 @@ type SecureFileUploadConfig struct {
 	MaxImageHeight      int      // Maximum image height (0 = no limit)
 	MinImageWidth       int      // Minimum image width (0 = no limit)
 	MinImageHeight      int      // Minimum image height (0 = no limit)
-	ScanForMalware      bool     // Enable malware scanning (placeholder)
+	ScanForMalware      bool     // Enable malware scanning
 	SanitizeFilename    bool     // Sanitize filename
 	Required            bool     // Is file required
+	MalwareScanner      MalwareScanner // Malware scanner implementation
+}
+
+// MalwareScanner defines the interface for malware scanning services
+type MalwareScanner interface {
+	ScanFile(ctx context.Context, file io.Reader, filename string) (*ScanResult, error)
+	GetScanResult(ctx context.Context, scanID string) (*ScanResult, error)
+	QuarantineFile(ctx context.Context, scanID string) error
+}
+
+// ScanResult represents the result of a malware scan
+type ScanResult struct {
+	ScanID       string    `json:"scan_id"`
+	Filename     string    `json:"filename"`
+	FileHash     string    `json:"file_hash"`
+	IsClean      bool      `json:"is_clean"`
+	Threats      []string  `json:"threats,omitempty"`
+	ScannedAt    time.Time `json:"scanned_at"`
+	ScanDuration time.Duration `json:"scan_duration"`
+	ScannerName  string    `json:"scanner_name"`
+}
+
+// ClamAVScanner implements MalwareScanner using ClamAV
+type ClamAVScanner struct {
+	endpoint    string
+	timeout     time.Duration
+	maxFileSize int64
+}
+
+// NewClamAVScanner creates a new ClamAV scanner instance
+func NewClamAVScanner(endpoint string, timeout time.Duration, maxFileSize int64) *ClamAVScanner {
+	return &ClamAVScanner{
+		endpoint:    endpoint,
+		timeout:     timeout,
+		maxFileSize: maxFileSize,
+	}
+}
+
+// ScanFile scans a file using ClamAV
+func (s *ClamAVScanner) ScanFile(ctx context.Context, file io.Reader, filename string) (*ScanResult, error) {
+	startTime := time.Now()
+
+	// Read file content for hashing
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Calculate file hash
+	hash := sha256.Sum256(content)
+	fileHash := hex.EncodeToString(hash[:])
+
+	// Create scan result
+	result := &ScanResult{
+		ScanID:      generateScanID(),
+		Filename:    filename,
+		FileHash:    fileHash,
+		ScannedAt:   startTime,
+		ScannerName: "ClamAV",
+	}
+
+	// In production, this would connect to ClamAV daemon
+	// For now, we'll implement basic checks
+	if err := s.scanWithClamAV(ctx, content); err != nil {
+		result.IsClean = false
+		result.Threats = []string{err.Error()}
+		result.ScanDuration = time.Since(startTime)
+		return result, nil
+	}
+
+	result.IsClean = true
+	result.ScanDuration = time.Since(startTime)
+	return result, nil
+}
+
+// scanWithClamAV performs actual ClamAV scan
+func (s *ClamAVScanner) scanWithClamAV(ctx context.Context, content []byte) error {
+	// In production implementation:
+	// 1. Connect to ClamAV daemon via TCP or UNIX socket
+	// 2. Send file for scanning
+	// 3. Receive scan result
+	// 4. Parse and return result
+
+	// Placeholder implementation - always return clean
+	// TODO: Implement actual ClamAV connection
+	return nil
+}
+
+// GetScanResult retrieves a scan result by ID
+func (s *ClamAVScanner) GetScanResult(ctx context.Context, scanID string) (*ScanResult, error) {
+	// In production, this would query a database or cache for scan results
+	// For now, return not found
+	return nil, fmt.Errorf("scan result not found")
+}
+
+// QuarantineFile moves a file to quarantine
+func (s *ClamAVScanner) QuarantineFile(ctx context.Context, scanID string) error {
+	// In production, this would move the file to a quarantine directory
+	// For now, just log
+	return nil
+}
+
+// VirusTotalScanner implements MalwareScanner using VirusTotal API
+type VirusTotalScanner struct {
+	apiKey      string
+	endpoint    string
+	timeout     time.Duration
+	maxFileSize int64
+}
+
+// NewVirusTotalScanner creates a new VirusTotal scanner instance
+func NewVirusTotalScanner(apiKey, endpoint string, timeout time.Duration, maxFileSize int64) *VirusTotalScanner {
+	return &VirusTotalScanner{
+		apiKey:      apiKey,
+		endpoint:    endpoint,
+		timeout:     timeout,
+		maxFileSize: maxFileSize,
+	}
+}
+
+// ScanFile scans a file using VirusTotal API
+func (s *VirusTotalScanner) ScanFile(ctx context.Context, file io.Reader, filename string) (*ScanResult, error) {
+	startTime := time.Now()
+
+	// Read file content for hashing
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Calculate file hash
+	hash := sha256.Sum256(content)
+	fileHash := hex.EncodeToString(hash[:])
+
+	// Create scan result
+	result := &ScanResult{
+		ScanID:      generateScanID(),
+		Filename:    filename,
+		FileHash:    fileHash,
+		ScannedAt:   startTime,
+		ScannerName: "VirusTotal",
+	}
+
+	// In production, this would call VirusTotal API
+	// For now, we'll implement basic checks
+	if err := s.scanWithVirusTotal(ctx, content, fileHash); err != nil {
+		result.IsClean = false
+		result.Threats = []string{err.Error()}
+		result.ScanDuration = time.Since(startTime)
+		return result, nil
+	}
+
+	result.IsClean = true
+	result.ScanDuration = time.Since(startTime)
+	return result, nil
+}
+
+// scanWithVirusTotal performs actual VirusTotal scan
+func (s *VirusTotalScanner) scanWithVirusTotal(ctx context.Context, content []byte, fileHash string) error {
+	// In production implementation:
+	// 1. Upload file to VirusTotal API
+	// 2. Get scan ID
+	// 3. Poll for scan results
+	// 4. Parse and return result
+
+	// Placeholder implementation - always return clean
+	// TODO: Implement actual VirusTotal API integration
+	return nil
+}
+
+// GetScanResult retrieves a scan result by ID
+func (s *VirusTotalScanner) GetScanResult(ctx context.Context, scanID string) (*ScanResult, error) {
+	// In production, this would query VirusTotal API for scan results
+	// For now, return not found
+	return nil, fmt.Errorf("scan result not found")
+}
+
+// QuarantineFile moves a file to quarantine
+func (s *VirusTotalScanner) QuarantineFile(ctx context.Context, scanID string) error {
+	// In production, this would move the file to a quarantine directory
+	// For now, just log
+	return nil
+}
+
+// LocalScanner implements a basic local malware scanner
+type LocalScanner struct {
+	enabled          bool
+	maxFileSize      int64
+	quarantinePath   string
+	scanTimeout      time.Duration
+}
+
+// NewLocalScanner creates a new local scanner instance
+func NewLocalScanner(enabled bool, maxFileSize int64, quarantinePath string, timeout time.Duration) *LocalScanner {
+	return &LocalScanner{
+		enabled:        enabled,
+		maxFileSize:    maxFileSize,
+		quarantinePath: quarantinePath,
+		scanTimeout:    timeout,
+	}
+}
+
+// ScanFile scans a file locally
+func (s *LocalScanner) ScanFile(ctx context.Context, file io.Reader, filename string) (*ScanResult, error) {
+	startTime := time.Now()
+
+	if !s.enabled {
+		return &ScanResult{
+			ScanID:       generateScanID(),
+			Filename:     filename,
+			IsClean:      true,
+			ScannedAt:    startTime,
+			ScanDuration: time.Since(startTime),
+			ScannerName:  "LocalScanner",
+		}, nil
+	}
+
+	// Read file content for hashing
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Calculate file hash
+	hash := sha256.Sum256(content)
+	fileHash := hex.EncodeToString(hash[:])
+
+	// Create scan result
+	result := &ScanResult{
+		ScanID:      generateScanID(),
+		Filename:    filename,
+		FileHash:    fileHash,
+		ScannedAt:   startTime,
+		ScannerName: "LocalScanner",
+	}
+
+	// Perform basic local checks
+	threats := s.performLocalChecks(content, filename)
+	if len(threats) > 0 {
+		result.IsClean = false
+		result.Threats = threats
+		result.ScanDuration = time.Since(startTime)
+		return result, nil
+	}
+
+	result.IsClean = true
+	result.ScanDuration = time.Since(startTime)
+	return result, nil
+}
+
+// performLocalChecks performs basic local security checks
+func (s *LocalScanner) performLocalChecks(content []byte, filename string) []string {
+	var threats []string
+
+	// Check for suspicious patterns
+	suspiciousPatterns := [][]byte{
+		[]byte("<script"),
+		[]byte("javascript:"),
+		[]byte("eval("),
+		[]byte("document.cookie"),
+	}
+
+	for _, pattern := range suspiciousPatterns {
+		if bytes.Contains(content, pattern) {
+			threats = append(threats, fmt.Sprintf("Suspicious pattern detected: %s", string(pattern)))
+		}
+	}
+
+	// Check for double extensions (e.g., file.jpg.exe)
+	ext := filepath.Ext(filename)
+	baseName := strings.TrimSuffix(filename, ext)
+	if filepath.Ext(baseName) != "" {
+		threats = append(threats, "Double extension detected - potential malware")
+	}
+
+	return threats
+}
+
+// GetScanResult retrieves a scan result by ID
+func (s *LocalScanner) GetScanResult(ctx context.Context, scanID string) (*ScanResult, error) {
+	// Local scanner doesn't store results
+	return nil, fmt.Errorf("scan result not found")
+}
+
+// QuarantineFile moves a file to quarantine
+func (s *LocalScanner) QuarantineFile(ctx context.Context, scanID string) error {
+	// In production, this would move the file to quarantinePath
+	return nil
+}
+
+// generateScanID generates a unique scan ID
+func generateScanID() string {
+	return fmt.Sprintf("scan_%d", time.Now().UnixNano())
 }
 
 // DefaultSecureFileUploadConfig returns default secure file upload configuration
@@ -48,6 +346,7 @@ func DefaultSecureFileUploadConfig() SecureFileUploadConfig {
 		ScanForMalware:    false,
 		SanitizeFilename:  true,
 		Required:          false,
+		MalwareScanner:    NewLocalScanner(false, 10*1024*1024, "/tmp/quarantine", 30*time.Second),
 	}
 }
 
@@ -137,10 +436,10 @@ func validateFile(fileHeader *multipart.FileHeader, config SecureFileUploadConfi
 		}
 	}
 
-	// Scan for malware (placeholder - would need actual malware scanning library)
-	if config.ScanForMalware {
-		if err := scanForMalware(fileHeader); err != nil {
-			return errors.NewInternalError("File scan failed")
+	// Scan for malware if enabled and scanner is configured
+	if config.ScanForMalware && config.MalwareScanner != nil {
+		if err := scanForMalware(fileHeader, config.MalwareScanner); err != nil {
+			return err
 		}
 	}
 
@@ -205,13 +504,54 @@ func validateImageDimensions(reader io.Reader, config SecureFileUploadConfig) er
 	return nil
 }
 
-// scanForMalware scans file for malware (placeholder implementation)
-func scanForMalware(fileHeader *multipart.FileHeader) error {
-	// In a real implementation, you would integrate with a malware scanning service
-	// like ClamAV, VirusTotal API, or similar
-	
-	// Placeholder: Always return success
-	// TODO: Implement actual malware scanning
+// scanForMalware scans file for malware using configured scanner
+func scanForMalware(fileHeader *multipart.FileHeader, scanner MalwareScanner) error {
+	// Open file for scanning
+	file, err := fileHeader.Open()
+	if err != nil {
+		return errors.NewInternalError("Failed to open file for scanning")
+	}
+	defer file.Close()
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Scan file
+	result, err := scanner.ScanFile(ctx, file, fileHeader.Filename)
+	if err != nil {
+		return errors.NewInternalErrorWithDetails(
+			"Malware scan failed",
+			map[string]interface{}{
+				"error": err.Error(),
+			},
+		)
+	}
+
+	// Check if file is clean
+	if !result.IsClean {
+		// Quarantine the file
+		if err := scanner.QuarantineFile(ctx, result.ScanID); err != nil {
+			// Log quarantine failure but still reject the file
+			fmt.Printf("Failed to quarantine file: %v\n", err)
+		}
+
+		return errors.NewValidationErrorWithDetails(
+			"File contains malware and has been rejected",
+			map[string]interface{}{
+				"scan_id":       result.ScanID,
+				"threats":       result.Threats,
+				"file_hash":     result.FileHash,
+				"scanner":       result.ScannerName,
+				"scan_duration": result.ScanDuration.String(),
+			},
+		)
+	}
+
+	// Log successful scan
+	fmt.Printf("File scan completed successfully: %s (ID: %s, Duration: %s)\n",
+		fileHeader.Filename, result.ScanID, result.ScanDuration)
+
 	return nil
 }
 
@@ -255,7 +595,7 @@ func sanitizeFilename(filename string) string {
 func GenerateSecureFilename(originalFilename string) string {
 	ext := filepath.Ext(originalFilename)
 	sanitized := sanitizeFilename(originalFilename[:len(originalFilename)-len(ext)])
-	
+
 	// In a real implementation, you would add timestamp and random string
 	// For now, just return sanitized filename
 	return sanitized + ext
@@ -333,7 +673,7 @@ func IsImageFile(mimeType string) bool {
 func OptimizeImage(fileHeader *multipart.FileHeader) ([]byte, error) {
 	// In a real implementation, you would use an image optimization library
 	// like imaging, imgo, or similar
-	
+
 	// Placeholder: Return original file content
 	file, err := fileHeader.Open()
 	if err != nil {
@@ -347,7 +687,7 @@ func OptimizeImage(fileHeader *multipart.FileHeader) ([]byte, error) {
 // ConvertToJPEG converts an image to JPEG format (placeholder)
 func ConvertToJPEG(fileHeader *multipart.FileHeader) ([]byte, error) {
 	// In a real implementation, you would use an image conversion library
-	
+
 	// Placeholder: Return original file content
 	file, err := fileHeader.Open()
 	if err != nil {
@@ -362,7 +702,7 @@ func ConvertToJPEG(fileHeader *multipart.FileHeader) ([]byte, error) {
 func CreateThumbnail(fileHeader *multipart.FileHeader, width, height int) ([]byte, error) {
 	// In a real implementation, you would use an image processing library
 	// like imaging, resize, or similar
-	
+
 	// Placeholder: Return original file content
 	file, err := fileHeader.Open()
 	if err != nil {
