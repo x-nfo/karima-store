@@ -3,7 +3,7 @@ package middleware
 import (
 	"bytes"
 	"encoding/json"
-	"net/http"
+	"io"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -67,11 +67,12 @@ func TestInputValidation_ValidInput(t *testing.T) {
 	jsonInput, _ := json.Marshal(validInput)
 	req := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput))
 	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusCreated, resp.Code)
-	assert.Contains(t, resp.Body.String(), "Product created successfully")
+	assert.Equal(t, fiber.StatusCreated, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "Product created successfully")
 }
 
 func TestInputValidation_MissingRequiredFields(t *testing.T) {
@@ -112,10 +113,11 @@ func TestInputValidation_MissingRequiredFields(t *testing.T) {
 	jsonInput1, _ := json.Marshal(input1)
 	req1 := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput1))
 	req1.Header.Set("Content-Type", "application/json")
-	resp1 := httptest.NewRecorder()
-	app.Handler()(resp1, req1)
-	assert.Equal(t, fiber.StatusBadRequest, resp1.Code)
-	assert.Contains(t, resp1.Body.String(), "Product name is required")
+	resp1, err1 := app.Test(req1)
+	assert.NoError(t, err1)
+	assert.Equal(t, fiber.StatusBadRequest, resp1.StatusCode)
+	bodyBytes1, _ := io.ReadAll(resp1.Body)
+	assert.Contains(t, string(bodyBytes1), "Product name is required")
 
 	// Test missing price
 	input2 := map[string]interface{}{
@@ -125,10 +127,11 @@ func TestInputValidation_MissingRequiredFields(t *testing.T) {
 	jsonInput2, _ := json.Marshal(input2)
 	req2 := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput2))
 	req2.Header.Set("Content-Type", "application/json")
-	resp2 := httptest.NewRecorder()
-	app.Handler()(resp2, req2)
-	assert.Equal(t, fiber.StatusBadRequest, resp2.Code)
-	assert.Contains(t, resp2.Body.String(), "Price must be greater than 0")
+	resp2, err2 := app.Test(req2)
+	assert.NoError(t, err2)
+	assert.Equal(t, fiber.StatusBadRequest, resp2.StatusCode)
+	bodyBytes2, _ := io.ReadAll(resp2.Body)
+	assert.Contains(t, string(bodyBytes2), "Price must be greater than 0")
 
 	// Test missing category
 	input3 := map[string]interface{}{
@@ -138,10 +141,11 @@ func TestInputValidation_MissingRequiredFields(t *testing.T) {
 	jsonInput3, _ := json.Marshal(input3)
 	req3 := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput3))
 	req3.Header.Set("Content-Type", "application/json")
-	resp3 := httptest.NewRecorder()
-	app.Handler()(resp3, req3)
-	assert.Equal(t, fiber.StatusBadRequest, resp3.Code)
-	assert.Contains(t, resp3.Body.String(), "Category is required")
+	resp3, err3 := app.Test(req3)
+	assert.NoError(t, err3)
+	assert.Equal(t, fiber.StatusBadRequest, resp3.StatusCode)
+	bodyBytes3, _ := io.ReadAll(resp3.Body)
+	assert.Contains(t, string(bodyBytes3), "Category is required")
 }
 
 func TestInputValidation_SQLInjection(t *testing.T) {
@@ -175,13 +179,14 @@ func TestInputValidation_SQLInjection(t *testing.T) {
 	jsonInput, _ := json.Marshal(sqlInjectionInput)
 	req := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput))
 	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusOK, resp.Code)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	// Verify that the input was sanitized
-	assert.NotContains(t, resp.Body.String(), "'; DROP TABLE")
-	assert.NotContains(t, resp.Body.String(), "DELETE FROM")
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.NotContains(t, string(bodyBytes), "'; DROP TABLE")
+	assert.NotContains(t, string(bodyBytes), "DELETE FROM")
 }
 
 func TestInputValidation_XSSAttack(t *testing.T) {
@@ -218,13 +223,14 @@ func TestInputValidation_XSSAttack(t *testing.T) {
 	jsonInput, _ := json.Marshal(xssInput)
 	req := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput))
 	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusOK, resp.Code)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	// Verify that the script tags were removed
-	assert.NotContains(t, resp.Body.String(), "<script>")
-	assert.NotContains(t, resp.Body.String(), "</script>")
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.NotContains(t, string(bodyBytes), "<script>")
+	assert.NotContains(t, string(bodyBytes), "</script>")
 }
 
 func TestInputValidation_CommandInjection(t *testing.T) {
@@ -259,13 +265,14 @@ func TestInputValidation_CommandInjection(t *testing.T) {
 	jsonInput, _ := json.Marshal(cmdInjectionInput)
 	req := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput))
 	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusOK, resp.Code)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	// Verify that the dangerous characters were removed
-	assert.NotContains(t, resp.Body.String(), ";")
-	assert.NotContains(t, resp.Body.String(), "rm -rf")
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.NotContains(t, string(bodyBytes), ";")
+	assert.NotContains(t, string(bodyBytes), "rm -rf")
 }
 
 func TestInputValidation_PathTraversal(t *testing.T) {
@@ -301,11 +308,12 @@ func TestInputValidation_PathTraversal(t *testing.T) {
 	jsonInput, _ := json.Marshal(pathTraversalInput)
 	req := httptest.NewRequest("POST", "/upload", bytes.NewReader(jsonInput))
 	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusBadRequest, resp.Code)
-	assert.Contains(t, resp.Body.String(), "Invalid filename")
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "Invalid filename")
 }
 
 func TestInputValidation_EmailValidation(t *testing.T) {
@@ -338,9 +346,9 @@ func TestInputValidation_EmailValidation(t *testing.T) {
 	jsonInput1, _ := json.Marshal(validEmail)
 	req1 := httptest.NewRequest("POST", "/users", bytes.NewReader(jsonInput1))
 	req1.Header.Set("Content-Type", "application/json")
-	resp1 := httptest.NewRecorder()
-	app.Handler()(resp1, req1)
-	assert.Equal(t, fiber.StatusCreated, resp1.Code)
+	resp1, err1 := app.Test(req1)
+	assert.NoError(t, err1)
+	assert.Equal(t, fiber.StatusCreated, resp1.StatusCode)
 
 	// Test invalid email
 	invalidEmail := map[string]interface{}{
@@ -349,10 +357,11 @@ func TestInputValidation_EmailValidation(t *testing.T) {
 	jsonInput2, _ := json.Marshal(invalidEmail)
 	req2 := httptest.NewRequest("POST", "/users", bytes.NewReader(jsonInput2))
 	req2.Header.Set("Content-Type", "application/json")
-	resp2 := httptest.NewRecorder()
-	app.Handler()(resp2, req2)
-	assert.Equal(t, fiber.StatusBadRequest, resp2.Code)
-	assert.Contains(t, resp2.Body.String(), "Invalid email address")
+	resp2, err2 := app.Test(req2)
+	assert.NoError(t, err2)
+	assert.Equal(t, fiber.StatusBadRequest, resp2.StatusCode)
+	bodyBytes2, _ := io.ReadAll(resp2.Body)
+	assert.Contains(t, string(bodyBytes2), "Invalid email address")
 }
 
 func TestInputValidation_NumericRangeValidation(t *testing.T) {
@@ -393,9 +402,9 @@ func TestInputValidation_NumericRangeValidation(t *testing.T) {
 	jsonInput1, _ := json.Marshal(highPriceInput)
 	req1 := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput1))
 	req1.Header.Set("Content-Type", "application/json")
-	resp1 := httptest.NewRecorder()
-	app.Handler()(resp1, req1)
-	assert.Equal(t, fiber.StatusBadRequest, resp1.Code)
+	resp1, err1 := app.Test(req1)
+	assert.NoError(t, err1)
+	assert.Equal(t, fiber.StatusBadRequest, resp1.StatusCode)
 
 	// Test negative price
 	negativePriceInput := map[string]interface{}{
@@ -407,9 +416,9 @@ func TestInputValidation_NumericRangeValidation(t *testing.T) {
 	jsonInput2, _ := json.Marshal(negativePriceInput)
 	req2 := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput2))
 	req2.Header.Set("Content-Type", "application/json")
-	resp2 := httptest.NewRecorder()
-	app.Handler()(resp2, req2)
-	assert.Equal(t, fiber.StatusBadRequest, resp2.Code)
+	resp2, err2 := app.Test(req2)
+	assert.NoError(t, err2)
+	assert.Equal(t, fiber.StatusBadRequest, resp2.StatusCode)
 
 	// Test valid price
 	validPriceInput := map[string]interface{}{
@@ -421,9 +430,9 @@ func TestInputValidation_NumericRangeValidation(t *testing.T) {
 	jsonInput3, _ := json.Marshal(validPriceInput)
 	req3 := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput3))
 	req3.Header.Set("Content-Type", "application/json")
-	resp3 := httptest.NewRecorder()
-	app.Handler()(resp3, req3)
-	assert.Equal(t, fiber.StatusCreated, resp3.Code)
+	resp3, err3 := app.Test(req3)
+	assert.NoError(t, err3)
+	assert.Equal(t, fiber.StatusCreated, resp3.StatusCode)
 }
 
 func TestInputValidation_StringLengthValidation(t *testing.T) {
@@ -464,9 +473,9 @@ func TestInputValidation_StringLengthValidation(t *testing.T) {
 	jsonInput1, _ := json.Marshal(shortNameInput)
 	req1 := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput1))
 	req1.Header.Set("Content-Type", "application/json")
-	resp1 := httptest.NewRecorder()
-	app.Handler()(resp1, req1)
-	assert.Equal(t, fiber.StatusBadRequest, resp1.Code)
+	resp1, err1 := app.Test(req1)
+	assert.NoError(t, err1)
+	assert.Equal(t, fiber.StatusBadRequest, resp1.StatusCode)
 
 	// Test description too long
 	longDescription := strings.Repeat("A", 501)
@@ -479,9 +488,9 @@ func TestInputValidation_StringLengthValidation(t *testing.T) {
 	jsonInput2, _ := json.Marshal(longDescInput)
 	req2 := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput2))
 	req2.Header.Set("Content-Type", "application/json")
-	resp2 := httptest.NewRecorder()
-	app.Handler()(resp2, req2)
-	assert.Equal(t, fiber.StatusBadRequest, resp2.Code)
+	resp2, err2 := app.Test(req2)
+	assert.NoError(t, err2)
+	assert.Equal(t, fiber.StatusBadRequest, resp2.StatusCode)
 
 	// Test valid input
 	validInput := map[string]interface{}{
@@ -493,9 +502,9 @@ func TestInputValidation_StringLengthValidation(t *testing.T) {
 	jsonInput3, _ := json.Marshal(validInput)
 	req3 := httptest.NewRequest("POST", "/products", bytes.NewReader(jsonInput3))
 	req3.Header.Set("Content-Type", "application/json")
-	resp3 := httptest.NewRecorder()
-	app.Handler()(resp3, req3)
-	assert.Equal(t, fiber.StatusCreated, resp3.Code)
+	resp3, err3 := app.Test(req3)
+	assert.NoError(t, err3)
+	assert.Equal(t, fiber.StatusCreated, resp3.StatusCode)
 }
 
 func TestRequestBodyParsing_MalformedJSON(t *testing.T) {
@@ -514,11 +523,12 @@ func TestRequestBodyParsing_MalformedJSON(t *testing.T) {
 	// Test malformed JSON
 	req := httptest.NewRequest("POST", "/products", bytes.NewReader([]byte("{invalid json}")))
 	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusBadRequest, resp.Code)
-	assert.Contains(t, resp.Body.String(), "Invalid JSON format")
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "Invalid JSON format")
 }
 
 func TestRequestBodyParsing_EmptyRequestBody(t *testing.T) {
@@ -537,10 +547,10 @@ func TestRequestBodyParsing_EmptyRequestBody(t *testing.T) {
 	// Test empty request body
 	req := httptest.NewRequest("POST", "/products", bytes.NewReader([]byte{}))
 	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusBadRequest, resp.Code)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 }
 
 func TestRequestBodyParsing_InvalidContentType(t *testing.T) {
@@ -558,9 +568,10 @@ func TestRequestBodyParsing_InvalidContentType(t *testing.T) {
 	// Test invalid content type
 	req := httptest.NewRequest("POST", "/products", bytes.NewReader([]byte("{}")))
 	req.Header.Set("Content-Type", "text/plain")
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusUnsupportedMediaType, resp.Code)
-	assert.Contains(t, resp.Body.String(), "Content-Type must be application/json")
+	assert.Equal(t, fiber.StatusUnsupportedMediaType, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "Content-Type must be application/json")
 }

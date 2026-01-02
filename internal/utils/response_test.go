@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"net/http"
+	"io"
 	"net/http/httptest"
 	"testing"
 
@@ -20,13 +20,14 @@ func TestSendSuccess(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/success", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusOK, resp.Code)
-	assert.Contains(t, resp.Body.String(), "success")
-	assert.Contains(t, resp.Body.String(), "Success message")
-	assert.Contains(t, resp.Body.String(), "Operation successful")
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "success")
+	assert.Contains(t, string(bodyBytes), "Success message")
+	assert.Contains(t, string(bodyBytes), "Operation successful")
 }
 
 func TestSendSuccess_CustomStatus(t *testing.T) {
@@ -40,13 +41,14 @@ func TestSendSuccess_CustomStatus(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("POST", "/created", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusCreated, resp.Code)
-	assert.Contains(t, resp.Body.String(), "success")
-	assert.Contains(t, resp.Body.String(), "Resource created")
-	assert.Contains(t, resp.Body.String(), "123")
+	assert.Equal(t, fiber.StatusCreated, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "success")
+	assert.Contains(t, string(bodyBytes), "Resource created")
+	assert.Contains(t, string(bodyBytes), "123")
 }
 
 func TestSendError(t *testing.T) {
@@ -60,13 +62,14 @@ func TestSendError(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/error", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusBadRequest, resp.Code)
-	assert.Contains(t, resp.Body.String(), "error")
-	assert.Contains(t, resp.Body.String(), "Bad request")
-	assert.Contains(t, resp.Body.String(), "Invalid value")
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "error")
+	assert.Contains(t, string(bodyBytes), "Bad request")
+	assert.Contains(t, string(bodyBytes), "Invalid value")
 }
 
 func TestSendValidationError(t *testing.T) {
@@ -81,14 +84,15 @@ func TestSendValidationError(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("POST", "/validate", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusBadRequest, resp.Code)
-	assert.Contains(t, resp.Body.String(), "error")
-	assert.Contains(t, resp.Body.String(), "Validation failed")
-	assert.Contains(t, resp.Body.String(), "Invalid email format")
-	assert.Contains(t, resp.Body.String(), "Password too short")
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "error")
+	assert.Contains(t, string(bodyBytes), "Validation failed")
+	assert.Contains(t, string(bodyBytes), "Invalid email format")
+	assert.Contains(t, string(bodyBytes), "Password too short")
 }
 
 func TestSendCreated(t *testing.T) {
@@ -104,14 +108,15 @@ func TestSendCreated(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("POST", "/create", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusCreated, resp.Code)
-	assert.Contains(t, resp.Body.String(), "success")
-	assert.Contains(t, resp.Body.String(), "Product created successfully")
-	assert.Contains(t, resp.Body.String(), "123")
-	assert.Contains(t, resp.Body.String(), "Test Product")
+	assert.Equal(t, fiber.StatusCreated, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "success")
+	assert.Contains(t, string(bodyBytes), "Product created successfully")
+	assert.Contains(t, string(bodyBytes), "123")
+	assert.Contains(t, string(bodyBytes), "Test Product")
 }
 
 func TestErrorHandling_GenericError(t *testing.T) {
@@ -122,12 +127,13 @@ func TestErrorHandling_GenericError(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/generic-error", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusInternalServerError, resp.Code)
-	assert.Contains(t, resp.Body.String(), "error")
-	assert.Contains(t, resp.Body.String(), "Internal server error")
+	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "error")
+	assert.Contains(t, string(bodyBytes), "Internal server error")
 }
 
 func TestErrorHandling_ValidationError(t *testing.T) {
@@ -142,14 +148,15 @@ func TestErrorHandling_ValidationError(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("POST", "/validation-error", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusBadRequest, resp.Code)
-	assert.Contains(t, resp.Body.String(), "error")
-	assert.Contains(t, resp.Body.String(), "Validation failed")
-	assert.Contains(t, resp.Body.String(), "Name is required")
-	assert.Contains(t, resp.Body.String(), "Price must be greater than 0")
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "error")
+	assert.Contains(t, string(bodyBytes), "Validation failed")
+	assert.Contains(t, string(bodyBytes), "Name is required")
+	assert.Contains(t, string(bodyBytes), "Price must be greater than 0")
 }
 
 func TestErrorHandling_AuthenticationError(t *testing.T) {
@@ -160,12 +167,13 @@ func TestErrorHandling_AuthenticationError(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/auth-error", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusUnauthorized, resp.Code)
-	assert.Contains(t, resp.Body.String(), "error")
-	assert.Contains(t, resp.Body.String(), "Unauthorized access")
+	assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "error")
+	assert.Contains(t, string(bodyBytes), "Unauthorized access")
 }
 
 func TestErrorHandling_AuthorizationError(t *testing.T) {
@@ -176,12 +184,13 @@ func TestErrorHandling_AuthorizationError(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/forbidden", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusForbidden, resp.Code)
-	assert.Contains(t, resp.Body.String(), "error")
-	assert.Contains(t, resp.Body.String(), "Access forbidden")
+	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "error")
+	assert.Contains(t, string(bodyBytes), "Access forbidden")
 }
 
 func TestErrorHandling_NotFoundError(t *testing.T) {
@@ -192,12 +201,13 @@ func TestErrorHandling_NotFoundError(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/not-found", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusNotFound, resp.Code)
-	assert.Contains(t, resp.Body.String(), "error")
-	assert.Contains(t, resp.Body.String(), "Resource not found")
+	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "error")
+	assert.Contains(t, string(bodyBytes), "Resource not found")
 }
 
 func TestSecurityErrorMessages_NoSensitiveInfo(t *testing.T) {
@@ -209,16 +219,17 @@ func TestSecurityErrorMessages_NoSensitiveInfo(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/secure-error", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusInternalServerError, resp.Code)
-	assert.Contains(t, resp.Body.String(), "error")
-	assert.Contains(t, resp.Body.String(), "An error occurred")
+	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "error")
+	assert.Contains(t, string(bodyBytes), "An error occurred")
 	// Ensure no sensitive information like file paths, stack traces, etc.
-	assert.NotContains(t, resp.Body.String(), "/")
-	assert.NotContains(t, resp.Body.String(), "stack")
-	assert.NotContains(t, resp.Body.String(), "trace")
+	assert.NotContains(t, string(bodyBytes), "/")
+	assert.NotContains(t, string(bodyBytes), "stack")
+	assert.NotContains(t, string(bodyBytes), "trace")
 }
 
 func TestSecurityErrorMessages_ConsistentFormatting(t *testing.T) {
@@ -239,12 +250,13 @@ func TestSecurityErrorMessages_ConsistentFormatting(t *testing.T) {
 		})
 
 		req := httptest.NewRequest("GET", "/error/"+string(rune(code)), nil)
-		resp := httptest.NewRecorder()
-		app.Handler()(resp, req)
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
 
-		assert.Equal(t, code, resp.Code)
-		assert.Contains(t, resp.Body.String(), "status")
-		assert.Contains(t, resp.Body.String(), "message")
+		assert.Equal(t, code, resp.StatusCode)
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		assert.Contains(t, string(bodyBytes), "status")
+		assert.Contains(t, string(bodyBytes), "message")
 	}
 }
 
@@ -257,16 +269,17 @@ func TestSecurityErrorMessages_DatabaseError(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/db-error", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusInternalServerError, resp.Code)
-	assert.Contains(t, resp.Body.String(), "error")
-	assert.Contains(t, resp.Body.String(), "Database operation failed")
+	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "error")
+	assert.Contains(t, string(bodyBytes), "Database operation failed")
 	// Ensure no database details are exposed
-	assert.NotContains(t, resp.Body.String(), "sql")
-	assert.NotContains(t, resp.Body.String(), "table")
-	assert.NotContains(t, resp.Body.String(), "column")
+	assert.NotContains(t, string(bodyBytes), "sql")
+	assert.NotContains(t, string(bodyBytes), "table")
+	assert.NotContains(t, string(bodyBytes), "column")
 }
 
 func TestSecurityErrorMessages_AuthenticationError(t *testing.T) {
@@ -278,16 +291,17 @@ func TestSecurityErrorMessages_AuthenticationError(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/auth-error", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
-	assert.Equal(t, fiber.StatusUnauthorized, resp.Code)
-	assert.Contains(t, resp.Body.String(), "error")
-	assert.Contains(t, resp.Body.String(), "Authentication required")
+	assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), "error")
+	assert.Contains(t, string(bodyBytes), "Authentication required")
 	// Ensure no authentication details are exposed
-	assert.NotContains(t, resp.Body.String(), "token")
-	assert.NotContains(t, resp.Body.String(), "password")
-	assert.NotContains(t, resp.Body.String(), "session")
+	assert.NotContains(t, string(bodyBytes), "token")
+	assert.NotContains(t, string(bodyBytes), "password")
+	assert.NotContains(t, string(bodyBytes), "session")
 }
 
 func TestErrorHandling_ErrorCodeConsistency(t *testing.T) {
@@ -333,10 +347,10 @@ func TestErrorHandling_ErrorCodeConsistency(t *testing.T) {
 			})
 
 			req := httptest.NewRequest("GET", "/test-error", nil)
-			resp := httptest.NewRecorder()
-			app.Handler()(resp, req)
+			resp, err := app.Test(req)
+			assert.NoError(t, err)
 
-			assert.Equal(t, tt.expectedStatus, resp.Code)
+			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
 		})
 	}
 }
@@ -354,12 +368,13 @@ func TestErrorHandling_ErrorDetailLevels(t *testing.T) {
 	})
 
 	req1 := httptest.NewRequest("GET", "/error-dev", nil)
-	resp1 := httptest.NewRecorder()
-	app.Handler()(resp1, req1)
+	resp1, err1 := app.Test(req1)
+	assert.NoError(t, err1)
 
-	assert.Equal(t, fiber.StatusBadRequest, resp1.Code)
-	assert.Contains(t, resp1.Body.String(), "Validation failed")
-	assert.Contains(t, resp1.Body.String(), "Invalid value")
+	assert.Equal(t, fiber.StatusBadRequest, resp1.StatusCode)
+	bodyBytes1, _ := io.ReadAll(resp1.Body)
+	assert.Contains(t, string(bodyBytes1), "Validation failed")
+	assert.Contains(t, string(bodyBytes1), "Invalid value")
 
 	// In production, less details should be shown
 	app.Get("/error-prod", func(c *fiber.Ctx) error {
@@ -367,11 +382,12 @@ func TestErrorHandling_ErrorDetailLevels(t *testing.T) {
 	})
 
 	req2 := httptest.NewRequest("GET", "/error-prod", nil)
-	resp2 := httptest.NewRecorder()
-	app.Handler()(resp2, req2)
+	resp2, err2 := app.Test(req2)
+	assert.NoError(t, err2)
 
-	assert.Equal(t, fiber.StatusBadRequest, resp2.Code)
-	assert.Contains(t, resp2.Body.String(), "Validation failed")
+	assert.Equal(t, fiber.StatusBadRequest, resp2.StatusCode)
+	bodyBytes2, _ := io.ReadAll(resp2.Body)
+	assert.Contains(t, string(bodyBytes2), "Validation failed")
 }
 
 func TestAPIResponse_Structure(t *testing.T) {
@@ -382,11 +398,12 @@ func TestAPIResponse_Structure(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
 
 	// Verify response structure
-	assert.Contains(t, resp.Body.String(), `"status"`)
-	assert.Contains(t, resp.Body.String(), `"message"`)
-	assert.Contains(t, resp.Body.String(), `"data"`)
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(bodyBytes), `"status"`)
+	assert.Contains(t, string(bodyBytes), `"message"`)
+	assert.Contains(t, string(bodyBytes), `"data"`)
 }

@@ -10,15 +10,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// KratosMiddleware handles authentication via Ory Kratos
-type KratosMiddleware struct {
+// KratosAuthProvider handles authentication via Ory Kratos
+type KratosAuthProvider struct {
 	kratosPublicURL string
 	kratosAdminURL  string
 }
 
 // NewKratosMiddleware creates a new Kratos middleware instance
-func NewKratosMiddleware(publicURL, adminURL string) *KratosMiddleware {
-	return &KratosMiddleware{
+func NewKratosMiddleware(publicURL, adminURL string) *KratosAuthProvider {
+	return &KratosAuthProvider{
 		kratosPublicURL: publicURL,
 		kratosAdminURL:  adminURL,
 	}
@@ -39,7 +39,7 @@ type KratosIdentity struct {
 }
 
 // Authenticate validates Kratos session from cookie
-func (m *KratosMiddleware) Authenticate() fiber.Handler {
+func (m *KratosAuthProvider) Authenticate() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Get session cookie
 		sessionCookie := c.Cookies("ory_kratos_session")
@@ -86,7 +86,7 @@ func (m *KratosMiddleware) Authenticate() fiber.Handler {
 }
 
 // RequireRole checks if user has required role
-func (m *KratosMiddleware) RequireRole(roles ...string) fiber.Handler {
+func (m *KratosAuthProvider) RequireRole(roles ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userRole := c.Locals("user_role")
 		if userRole == nil {
@@ -117,12 +117,12 @@ func (m *KratosMiddleware) RequireRole(roles ...string) fiber.Handler {
 }
 
 // RequireAdmin checks if user is admin
-func (m *KratosMiddleware) RequireAdmin() fiber.Handler {
+func (m *KratosAuthProvider) RequireAdmin() fiber.Handler {
 	return m.RequireRole("admin")
 }
 
 // OptionalAuth validates session if present, but doesn't require it
-func (m *KratosMiddleware) OptionalAuth() fiber.Handler {
+func (m *KratosAuthProvider) OptionalAuth() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		sessionCookie := c.Cookies("ory_kratos_session")
 		if sessionCookie == "" {
@@ -153,7 +153,7 @@ func (m *KratosMiddleware) OptionalAuth() fiber.Handler {
 }
 
 // validateSession calls Kratos whoami endpoint to validate session
-func (m *KratosMiddleware) validateSession(sessionToken string) (*KratosSession, error) {
+func (m *KratosAuthProvider) validateSession(sessionToken string) (*KratosSession, error) {
 	req, err := http.NewRequest("GET", m.kratosPublicURL+"/sessions/whoami", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -189,7 +189,7 @@ func (m *KratosMiddleware) validateSession(sessionToken string) (*KratosSession,
 }
 
 // GetIdentity retrieves full identity information from Kratos Admin API
-func (m *KratosMiddleware) GetIdentity(identityID string) (*KratosIdentity, error) {
+func (m *KratosAuthProvider) GetIdentity(identityID string) (*KratosIdentity, error) {
 	url := fmt.Sprintf("%s/admin/identities/%s", m.kratosAdminURL, identityID)
 
 	resp, err := http.Get(url)
@@ -212,7 +212,7 @@ func (m *KratosMiddleware) GetIdentity(identityID string) (*KratosIdentity, erro
 
 // ValidateToken middleware for Bearer token authentication (for API clients)
 // This is useful for mobile apps or external API consumers
-func (m *KratosMiddleware) ValidateToken() fiber.Handler {
+func (m *KratosAuthProvider) ValidateToken() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {

@@ -1,13 +1,11 @@
 package middleware
 
 import (
-	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/storage/redis/v3"
 	"github.com/karima-store/internal/config"
 	"github.com/stretchr/testify/assert"
 )
@@ -57,15 +55,15 @@ func TestRateLimiter_NewRateLimiter(t *testing.T) {
 
 			// Test first request (should succeed)
 			req1 := httptest.NewRequest("GET", "/test", nil)
-			resp1 := httptest.NewRecorder()
-			app.Handler()(resp1, req1)
-			assert.Equal(t, fiber.StatusOK, resp1.Code)
+			resp1, err1 := app.Test(req1)
+			assert.NoError(t, err1)
+			assert.Equal(t, fiber.StatusOK, resp1.StatusCode)
 
 			// Test second request (should succeed)
 			req2 := httptest.NewRequest("GET", "/test", nil)
-			resp2 := httptest.NewRecorder()
-			app.Handler()(resp2, req2)
-			assert.Equal(t, fiber.StatusOK, resp2.Code)
+			resp2, err2 := app.Test(req2)
+			assert.NoError(t, err2)
+			assert.Equal(t, fiber.StatusOK, resp2.StatusCode)
 		})
 	}
 }
@@ -92,16 +90,16 @@ func TestRateLimiter_CustomConfiguration(t *testing.T) {
 	// Test requests within limit
 	for i := 0; i < 10; i++ {
 		req := httptest.NewRequest("GET", "/custom-rate", nil)
-		resp := httptest.NewRecorder()
-		app.Handler()(resp, req)
-		assert.Equal(t, fiber.StatusOK, resp.Code)
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	}
 
 	// 11th request should be rate limited
 	req11 := httptest.NewRequest("GET", "/custom-rate", nil)
-	resp11 := httptest.NewRecorder()
-	app.Handler()(resp11, req11)
-	assert.Equal(t, fiber.StatusTooManyRequests, resp11.Code)
+	resp11, err11 := app.Test(req11)
+	assert.NoError(t, err11)
+	assert.Equal(t, fiber.StatusTooManyRequests, resp11.StatusCode)
 }
 
 func TestRateLimiter_IPBasedLimiting(t *testing.T) {
@@ -126,24 +124,24 @@ func TestRateLimiter_IPBasedLimiting(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		req := httptest.NewRequest("GET", "/ip-limited", nil)
 		req.RemoteAddr = "192.168.1.1:12345"
-		resp := httptest.NewRecorder()
-		app.Handler()(resp, req)
-		assert.Equal(t, fiber.StatusOK, resp.Code)
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	}
 
 	// 4th request from same IP should be rate limited
 	req4 := httptest.NewRequest("GET", "/ip-limited", nil)
 	req4.RemoteAddr = "192.168.1.1:12345"
-	resp4 := httptest.NewRecorder()
-	app.Handler()(resp4, req4)
-	assert.Equal(t, fiber.StatusTooManyRequests, resp4.Code)
+	resp4, err4 := app.Test(req4)
+	assert.NoError(t, err4)
+	assert.Equal(t, fiber.StatusTooManyRequests, resp4.StatusCode)
 
 	// Test different IP (should succeed)
 	req5 := httptest.NewRequest("GET", "/ip-limited", nil)
 	req5.RemoteAddr = "192.168.1.2:12345"
-	resp5 := httptest.NewRecorder()
-	app.Handler()(resp5, req5)
-	assert.Equal(t, fiber.StatusOK, resp5.Code)
+	resp5, err5 := app.Test(req5)
+	assert.NoError(t, err5)
+	assert.Equal(t, fiber.StatusOK, resp5.StatusCode)
 }
 
 func TestRateLimiter_ConcurrentRequests(t *testing.T) {
@@ -172,9 +170,9 @@ func TestRateLimiter_ConcurrentRequests(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		go func(index int) {
 			req := httptest.NewRequest("GET", "/concurrent", nil)
-			resp := httptest.NewRecorder()
-			app.Handler()(resp, req)
-			responses[index] = resp.Code
+			resp, err := app.Test(req)
+			assert.NoError(t, err)
+			responses[index] = resp.StatusCode
 			done <- true
 		}(i)
 	}
@@ -211,9 +209,9 @@ func TestRateLimiter_ErrorHandling(t *testing.T) {
 
 	// Request should still work even with Redis issues (fallback behavior)
 	req := httptest.NewRequest("GET", "/error-test", nil)
-	resp := httptest.NewRecorder()
-	app.Handler()(resp, req)
-	assert.Equal(t, fiber.StatusOK, resp.Code)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 }
 
 func TestRateLimiter_ProductionVsDevelopment(t *testing.T) {
@@ -248,9 +246,9 @@ func TestRateLimiter_ProductionVsDevelopment(t *testing.T) {
 
 			// Test first request
 			req := httptest.NewRequest("GET", "/env-test", nil)
-			resp := httptest.NewRecorder()
-			app.Handler()(resp, req)
-			assert.Equal(t, fiber.StatusOK, resp.Code)
+			resp, err := app.Test(req)
+			assert.NoError(t, err)
+			assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 		})
 	}
 }
@@ -276,23 +274,23 @@ func TestRateLimiter_RateLimitReset(t *testing.T) {
 	// First 2 requests should succeed
 	for i := 0; i < 2; i++ {
 		req := httptest.NewRequest("GET", "/reset-test", nil)
-		resp := httptest.NewRecorder()
-		app.Handler()(resp, req)
-		assert.Equal(t, fiber.StatusOK, resp.Code)
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	}
 
 	// 3rd request should be rate limited
 	req3 := httptest.NewRequest("GET", "/reset-test", nil)
-	resp3 := httptest.NewRecorder()
-	app.Handler()(resp3, req3)
-	assert.Equal(t, fiber.StatusTooManyRequests, resp3.Code)
+	resp3, err3 := app.Test(req3)
+	assert.NoError(t, err3)
+	assert.Equal(t, fiber.StatusTooManyRequests, resp3.StatusCode)
 
 	// Wait for window to reset
 	time.Sleep(3 * time.Second)
 
 	// Request should succeed after reset
 	req4 := httptest.NewRequest("GET", "/reset-test", nil)
-	resp4 := httptest.NewRecorder()
-	app.Handler()(resp4, req4)
-	assert.Equal(t, fiber.StatusOK, resp4.Code)
+	resp4, err4 := app.Test(req4)
+	assert.NoError(t, err4)
+	assert.Equal(t, fiber.StatusOK, resp4.StatusCode)
 }
