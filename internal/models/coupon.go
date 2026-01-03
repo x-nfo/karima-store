@@ -36,30 +36,30 @@ type Coupon struct {
 
 	// Discount
 	DiscountValue float64 `json:"discount_value" gorm:"not null"` // Percentage or fixed amount
-	MaxDiscount   float64 `json:"max_discount"`                // Maximum discount for percentage coupons
+	MaxDiscount   float64 `json:"max_discount"`                   // Maximum discount for percentage coupons
 
 	// Usage Limits
 	MinPurchaseAmount float64 `json:"min_purchase_amount"` // Minimum purchase amount to apply coupon
-	MaxUsageCount   int     `json:"max_usage_count"`    // Maximum times coupon can be used
-	UsageCount      int     `json:"usage_count" gorm:"default:0"`
-	MaxUsagePerUser int     `json:"max_usage_per_user"` // Maximum times a user can use this coupon
+	MaxUsageCount     int     `json:"max_usage_count"`     // Maximum times coupon can be used
+	UsageCount        int     `json:"usage_count" gorm:"default:0"`
+	MaxUsagePerUser   int     `json:"max_usage_per_user"` // Maximum times a user can use this coupon
 
 	// Validity
-	ValidFrom   *time.Time `json:"valid_from"`
-	ValidUntil  *time.Time `json:"valid_until"`
+	ValidFrom  *time.Time `json:"valid_from"`
+	ValidUntil *time.Time `json:"valid_until"`
 
 	// Restrictions
-	ApplicableProducts []uint `json:"applicable_products,omitempty" gorm:"-"` // Product IDs this coupon applies to
-	ExcludeProducts    []uint `json:"exclude_products,omitempty" gorm:"-"`    // Product IDs this coupon excludes
+	ApplicableProducts   []uint   `json:"applicable_products,omitempty" gorm:"-"`   // Product IDs this coupon applies to
+	ExcludeProducts      []uint   `json:"exclude_products,omitempty" gorm:"-"`      // Product IDs this coupon excludes
 	ApplicableCategories []string `json:"applicable_categories,omitempty" gorm:"-"` // Categories this coupon applies to
 
 	// Customer Type Restrictions
-	ForRetail   bool `json:"for_retail" gorm:"default:true"`
-	ForReseller bool `json:"for_reseller" gorm:"default:true"`
+	ForRetail   bool `json:"for_retail"`
+	ForReseller bool `json:"for_reseller"`
 
 	// Statistics
 	TotalDiscountUsed float64 `json:"total_discount_used" gorm:"default:0"`
-	OrderCount       int     `json:"order_count" gorm:"default:0"`
+	OrderCount        int     `json:"order_count" gorm:"default:0"`
 }
 
 func (Coupon) TableName() string {
@@ -71,7 +71,7 @@ type CouponUsage struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	CouponID uint `json:"coupon_id" gorm:"not null;index"`
+	CouponID uint   `json:"coupon_id" gorm:"not null;index"`
 	Coupon   Coupon `json:"coupon,omitempty" gorm:"foreignKey:CouponID"`
 
 	UserID uint `json:"user_id" gorm:"not null;index"`

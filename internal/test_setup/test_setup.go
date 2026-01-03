@@ -95,35 +95,41 @@ func buildTestDSN() string {
 }
 
 // CleanupTestData cleans up test data after each test
-func CleanupTestData(t *testing.T) {
-	if TestDB == nil {
+// CleanupTestData cleans up test data after each test
+func CleanupTestData(t *testing.T, db *gorm.DB) {
+	if db == nil {
 		return
 	}
 
 	// Delete all test data
 	// This is a simple cleanup - you might want to be more selective
 	// based on your test requirements
+	// Delete all test data in correct order to handle foreign keys
 	tables := []string{
+		"coupon_usages",
+		"flash_sale_products",
+		"order_items",
+		"cart_items",
+		"stock_logs",
 		"media",
-		"variants",
-		"products",
-		"categories",
+		"reviews",
+		"wishlists",
+		"product_variants",
+		"carts",
 		"orders",
+		"products",
 		"coupons",
 		"flash_sales",
-		"reviews",
-		"shipping_zones",
-		"stock_logs",
-		"taxes",
 		"users",
-		"wishlists",
-		"carts",
+		"shipping_zones",
+		"taxes",
 	}
 
 	for _, table := range tables {
-		err := TestDB.Exec("DELETE FROM " + table).Error
+		err := db.Exec("DELETE FROM " + table).Error
 		if err != nil {
-			t.Logf("Failed to clean up table %s: %v", table, err)
+			// Don't fail test cleanup, just log it (some tables might not exist yet)
+			t.Logf("Note: Failed to clean up table %s: %v", table, err)
 		}
 	}
 }
@@ -160,8 +166,14 @@ func SetupTestDB(t *testing.T) (*gorm.DB, func()) {
 		t.Fatalf("Failed to run migrations: %v", err)
 	}
 
+	// Clean up data before test to ensure clean state
+	CleanupTestData(t, db)
+
 	// Clean up function
 	cleanup := func() {
+		// Clean up data after test
+		CleanupTestData(t, db)
+
 		sqlDB, err := db.DB()
 		if err == nil {
 			sqlDB.Close()
@@ -203,7 +215,9 @@ func RunMigrations(db *gorm.DB) error {
 		&models.Review{},
 		&models.Wishlist{},
 		&models.Coupon{},
+		&models.CouponUsage{},
 		&models.FlashSale{},
+		&models.FlashSaleProduct{},
 		&models.ShippingZone{},
 		&models.Tax{},
 		&models.StockLog{},

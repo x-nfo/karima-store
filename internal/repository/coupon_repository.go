@@ -29,7 +29,8 @@ func NewCouponRepository(db *gorm.DB) CouponRepository {
 }
 
 func (r *couponRepository) Create(coupon *models.Coupon) error {
-	return r.db.Create(coupon).Error
+	// Select("*") ensures that zero values (like bool false) are also saved
+	return r.db.Select("*").Create(coupon).Error
 }
 
 func (r *couponRepository) GetByID(id uint) (*models.Coupon, error) {
