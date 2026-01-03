@@ -176,6 +176,7 @@ func main() {
 	orderHandler := handlers.NewOrderHandler(orderService) // Added OrderHandler
 	whatsappHandler := handlers.NewWhatsAppHandler(notificationService)
 	swaggerHandler := handlers.NewSwaggerHandler()
+	healthHandler := handlers.NewHealthHandler()
 	authHandler := handlers.NewAuthHandler(authService, cfg)
 	userHandler := handlers.NewUserHandler(userService)
 
@@ -195,6 +196,7 @@ func main() {
 		orderHandler,
 		whatsappHandler,
 		swaggerHandler,
+		healthHandler,
 	)
 
 	// Health check endpoint

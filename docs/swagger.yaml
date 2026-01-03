@@ -579,6 +579,9 @@ definitions:
         type: array
       id:
         type: integer
+      is_featured:
+        description: Featured
+        type: boolean
       material:
         type: string
       media:
@@ -675,11 +678,15 @@ definitions:
     - available
     - out_of_stock
     - discontinued
+    - unavailable
+    - draft
     type: string
     x-enum-varnames:
     - StatusAvailable
     - StatusOutOfStock
     - StatusDiscontinued
+    - StatusUnavailable
+    - StatusDraft
   models.ProductVariant:
     properties:
       color:
@@ -790,6 +797,8 @@ definitions:
         type: boolean
       is_verified:
         type: boolean
+      kratos_id:
+        type: string
       last_login_at:
         description: Timestamps
         type: string
@@ -1057,6 +1066,20 @@ paths:
       summary: Create Order and Generate Payment Token
       tags:
       - payment
+  /api/v1/health:
+    get:
+      description: Check if the server is healthy and running
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Server is healthy
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Health Check
+      tags:
+      - Health
   /api/v1/media/:id:
     delete:
       consumes:
@@ -2801,6 +2824,58 @@ paths:
       summary: Get WhatsApp webhook URL
       tags:
       - whatsapp
+  /auth/login:
+    post:
+      description: Redirects to Kratos login UI or returns init flow URL
+      produces:
+      - application/json
+      responses:
+        "303":
+          description: Redirect to Kratos
+          schema:
+            type: string
+      summary: Initiate Login
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      description: Redirects to Kratos logout UI
+      produces:
+      - application/json
+      responses:
+        "303":
+          description: Redirect to Kratos
+          schema:
+            type: string
+      summary: Initiate Logout
+      tags:
+      - auth
+  /auth/me:
+    get:
+      description: detailed user info merging Kratos identity and local DB user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+      summary: Get Current User
+      tags:
+      - auth
+  /auth/register:
+    post:
+      description: Redirects to Kratos registration UI or returns init flow URL
+      produces:
+      - application/json
+      responses:
+        "303":
+          description: Redirect to Kratos
+          schema:
+            type: string
+      summary: Initiate Registration
+      tags:
+      - auth
   /komerce/orders:
     post:
       consumes:
@@ -2945,6 +3020,19 @@ paths:
       summary: Request pickup
       tags:
       - komerce
+  /metrics:
+    get:
+      description: Get Prometheus metrics for monitoring and alerting
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Prometheus metrics
+          schema:
+            type: string
+      summary: Prometheus Metrics
+      tags:
+      - Health
   /swagger/index.html:
     get:
       description: Get Swagger UI for API documentation
@@ -2956,6 +3044,275 @@ paths:
       summary: Show Swagger UI
       tags:
       - Documentation
+  /users:
+    get:
+      consumes:
+      - application/json
+      description: Get list of all users (admin only)
+      parameters:
+      - default: 20
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - KratosSession: []
+      summary: Get all users
+      tags:
+      - users
+  /users/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get user details by ID (admin or self)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - KratosSession: []
+      summary: Get user by ID
+      tags:
+      - users
+  /users/{id}/activate:
+    put:
+      consumes:
+      - application/json
+      description: Activate a user account (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - KratosSession: []
+      summary: Activate user
+      tags:
+      - users
+  /users/{id}/deactivate:
+    put:
+      consumes:
+      - application/json
+      description: Deactivate a user account (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - KratosSession: []
+      summary: Deactivate user
+      tags:
+      - users
+  /users/{id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Update a user's role (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Role update request
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - KratosSession: []
+      summary: Update user role
+      tags:
+      - users
+  /users/me:
+    get:
+      consumes:
+      - application/json
+      description: Get current user's profile
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - KratosSession: []
+      summary: Get current authenticated user
+      tags:
+      - users
+  /users/stats:
+    get:
+      consumes:
+      - application/json
+      description: Get user statistics (admin only)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - KratosSession: []
+      summary: Get user statistics
+      tags:
+      - users
 securityDefinitions:
   KratosSession:
     description: Ory Kratos session token (Bearer token or X-Session-Token header)

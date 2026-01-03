@@ -20,7 +20,8 @@ func RegisterRoutes(app *fiber.App,
 	komerceHandler *handlers.KomerceHandler,
 	orderHandler *handlers.OrderHandler,
 	whatsappHandler *handlers.WhatsAppHandler,
-	swaggerHandler *handlers.SwaggerHandler) {
+	swaggerHandler *handlers.SwaggerHandler,
+	healthHandler *handlers.HealthHandler) {
 
 	// ===================================================================
 	// CSRF PROTECTION MIDDLEWARE
@@ -73,12 +74,7 @@ func RegisterRoutes(app *fiber.App,
 	// ===================================================================
 
 	// Health check
-	app.Get("/api/v1/health", func(c *fiber.Ctx) error {
-		return c.Status(200).JSON(fiber.Map{
-			"status":  "up",
-			"message": "Server is healthy",
-		})
-	})
+	app.Get("/api/v1/health", healthHandler.HealthCheck)
 
 	// Prometheus metrics endpoint (production-ready using adaptor pattern)
 	app.Get("/metrics", middleware.MetricsHandler())
