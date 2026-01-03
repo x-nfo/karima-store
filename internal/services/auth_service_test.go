@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/karima-store/internal/middleware"
 	"github.com/karima-store/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -57,7 +56,7 @@ func TestAuthService_SyncUser(t *testing.T) {
 
 		kratosID := "test-kratos-id"
 		email := "test@example.com"
-		identity := &middleware.KratosIdentity{
+		identity := &models.KratosIdentity{
 			ID:     kratosID,
 			Traits: map[string]interface{}{"email": email},
 		}
@@ -83,7 +82,7 @@ func TestAuthService_SyncUser(t *testing.T) {
 
 		kratosID := "new-kratos-id"
 		email := "new@example.com"
-		identity := &middleware.KratosIdentity{
+		identity := &models.KratosIdentity{
 			ID:     kratosID,
 			Traits: map[string]interface{}{"email": email, "name": "New User"},
 		}
@@ -108,7 +107,7 @@ func TestAuthService_SyncUser(t *testing.T) {
 
 		kratosID := "link-kratos-id"
 		email := "legacy@example.com"
-		identity := &middleware.KratosIdentity{
+		identity := &models.KratosIdentity{
 			ID:     kratosID,
 			Traits: map[string]interface{}{"email": email},
 		}
@@ -138,7 +137,7 @@ func TestAuthService_SyncUser(t *testing.T) {
 
 		kratosID := "error-id"
 		email := "error@example.com"
-		identity := &middleware.KratosIdentity{ID: kratosID}
+		identity := &models.KratosIdentity{ID: kratosID}
 
 		mockRepo.On("FindByKratosID", kratosID).Return(nil, errors.New("db error"))
 

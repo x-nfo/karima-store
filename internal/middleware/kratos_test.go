@@ -12,8 +12,37 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/storage/redis/v3"
 	"github.com/karima-store/internal/config"
+	"github.com/karima-store/internal/models"
 	"github.com/stretchr/testify/assert"
 )
+
+// MockAuthService is a mock implementation of AuthService for testing
+type MockAuthService struct{}
+
+func (m *MockAuthService) SyncUser(kratosIdentity *models.KratosIdentity, email string) (*models.User, error) {
+	// Extract role from Kratos traits if available (matching test expectations)
+	role := models.UserRole("user") // default to "user" to match test expectations
+	if roleStr, ok := kratosIdentity.Traits["role"].(string); ok && roleStr != "" {
+		role = models.UserRole(roleStr)
+	}
+
+	return &models.User{
+		ID:       1,
+		KratosID: kratosIdentity.ID,
+		Email:    email,
+		Role:     role,
+		FullName: "Test User",
+	}, nil
+}
+
+func (m *MockAuthService) GetUserByID(id uint) (*models.User, error) {
+	return &models.User{
+		ID:       id,
+		Email:    "test@example.com",
+		Role:     models.RoleCustomer,
+		FullName: "Test User",
+	}, nil
+}
 
 // Helper to create mock Kratos server
 func mockKratosServer() *httptest.Server {
@@ -68,8 +97,9 @@ func TestKratosMiddleware_Authenticate(t *testing.T) {
 	// Setup test app
 	app := fiber.New()
 
-	// Create middleware with mock server URL
-	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL)
+	// Create middleware with mock server URL and mock auth service
+	mockAuthService := &MockAuthService{}
+	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL, mockAuthService)
 
 	// Test route with authentication
 	app.Get("/protected", kratosMiddleware.Authenticate(), func(c *fiber.Ctx) error {
@@ -108,7 +138,8 @@ func TestKratosMiddleware_RequireRole(t *testing.T) {
 	defer ts.Close()
 
 	app := fiber.New()
-	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL)
+	mockAuthService := &MockAuthService{}
+	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL, mockAuthService)
 
 	// Test route requiring admin role
 	app.Get("/admin", kratosMiddleware.Authenticate(), kratosMiddleware.RequireRole("admin"), func(c *fiber.Ctx) error {
@@ -162,7 +193,8 @@ func TestKratosMiddleware_ValidateToken(t *testing.T) {
 	defer ts.Close()
 
 	app := fiber.New()
-	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL)
+	mockAuthService := &MockAuthService{}
+	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL, mockAuthService)
 
 	// Test route with token authentication
 	app.Get("/api", kratosMiddleware.ValidateToken(), func(c *fiber.Ctx) error {
@@ -195,7 +227,8 @@ func TestKratosMiddleware_OptionalAuth(t *testing.T) {
 	defer ts.Close()
 
 	app := fiber.New()
-	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL)
+	mockAuthService := &MockAuthService{}
+	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL, mockAuthService)
 
 	// Test route with optional authentication
 	app.Get("/optional", kratosMiddleware.OptionalAuth(), func(c *fiber.Ctx) error {
@@ -234,7 +267,8 @@ func TestKratosMiddleware_SessionData(t *testing.T) {
 	defer ts.Close()
 
 	app := fiber.New()
-	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL)
+	mockAuthService := &MockAuthService{}
+	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL, mockAuthService)
 
 	// Test route that checks session data
 	app.Get("/session-data", kratosMiddleware.Authenticate(), func(c *fiber.Ctx) error {
@@ -269,12 +303,13 @@ func TestKratosMiddleware_RoleDefaults(t *testing.T) {
 	defer ts.Close()
 
 	app := fiber.New()
-	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL)
+	mockAuthService := &MockAuthService{}
+	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL, mockAuthService)
 
 	// Test route that checks role defaults
 	app.Get("/role-default", kratosMiddleware.Authenticate(), func(c *fiber.Ctx) error {
 		userRole := c.Locals("user_role")
-		assert.Equal(t, "user", userRole) // Default role should be "user"
+		assert.Equal(t, models.UserRole("user"), userRole) // Default role should be models.UserRole("user")
 		return c.SendStatus(fiber.StatusOK)
 	})
 
@@ -316,7 +351,8 @@ func TestKratosMiddleware_RateLimitIntegration(t *testing.T) {
 		},
 	})
 
-	kratosMiddleware := NewKratosMiddleware(cfg.KratosPublicURL, cfg.KratosAdminURL)
+	mockAuthService := &MockAuthService{}
+	kratosMiddleware := NewKratosMiddleware(cfg.KratosPublicURL, cfg.KratosAdminURL, mockAuthService)
 
 	// Test route with authentication and rate limiting
 	app.Get("/protected/rate-limited", rateLimiter, kratosMiddleware.Authenticate(), func(c *fiber.Ctx) error {

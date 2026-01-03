@@ -8,34 +8,24 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/karima-store/internal/models"
+	"github.com/karima-store/internal/services"
 )
 
 // KratosAuthProvider handles authentication via Ory Kratos
 type KratosAuthProvider struct {
 	kratosPublicURL string
 	kratosAdminURL  string
+	authService     services.AuthService
 }
 
 // NewKratosMiddleware creates a new Kratos middleware instance
-func NewKratosMiddleware(publicURL, adminURL string) *KratosAuthProvider {
+func NewKratosMiddleware(publicURL, adminURL string, authService services.AuthService) *KratosAuthProvider {
 	return &KratosAuthProvider{
 		kratosPublicURL: publicURL,
 		kratosAdminURL:  adminURL,
+		authService:     authService,
 	}
-}
-
-// KratosSession represents a Kratos session
-type KratosSession struct {
-	ID       string                 `json:"id"`
-	Active   bool                   `json:"active"`
-	Identity KratosIdentity         `json:"identity"`
-	Traits   map[string]interface{} `json:"traits"`
-}
-
-// KratosIdentity represents a Kratos identity
-type KratosIdentity struct {
-	ID     string                 `json:"id"`
-	Traits map[string]interface{} `json:"traits"`
 }
 
 // Authenticate validates Kratos session from cookie
@@ -69,18 +59,24 @@ func (m *KratosAuthProvider) Authenticate() fiber.Handler {
 
 		// Extract user information from traits
 		email, _ := session.Identity.Traits["email"].(string)
-		role, _ := session.Identity.Traits["role"].(string)
 
-		// Default role if not set
-		if role == "" {
-			role = "user"
+		// Sync user with local database
+		user, err := m.authService.SyncUser(&session.Identity, email)
+		if err != nil {
+			fmt.Printf("User sync failed: %v\n", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to sync user data",
+				"code":  "INTERNAL_SERVER_ERROR",
+			})
 		}
 
 		// Set user information in context
 		c.Locals("identity_id", session.Identity.ID)
 		c.Locals("user_email", email)
-		c.Locals("user_role", role)
+		c.Locals("user_role", user.Role)
+		c.Locals("local_user_id", user.ID)
 		c.Locals("session", session)
+		c.Locals("user", user)
 
 		return c.Next()
 	}
@@ -98,9 +94,15 @@ func (m *KratosAuthProvider) RequireRole(roles ...string) fiber.Handler {
 		}
 
 		// Check if user has any of the required roles
+		// userRole is models.UserRole type, need to convert for comparison
+		userRoleStr := ""
+		if ur, ok := userRole.(models.UserRole); ok {
+			userRoleStr = string(ur)
+		}
+
 		hasRole := false
 		for _, role := range roles {
-			if userRole == role {
+			if userRoleStr == role {
 				hasRole = true
 				break
 			}
@@ -154,7 +156,7 @@ func (m *KratosAuthProvider) OptionalAuth() fiber.Handler {
 }
 
 // validateSession calls Kratos whoami endpoint to validate session
-func (m *KratosAuthProvider) validateSession(sessionToken string) (*KratosSession, error) {
+func (m *KratosAuthProvider) validateSession(sessionToken string) (*models.KratosSession, error) {
 	req, err := http.NewRequest("GET", m.kratosPublicURL+"/sessions/whoami", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -181,7 +183,7 @@ func (m *KratosAuthProvider) validateSession(sessionToken string) (*KratosSessio
 		return nil, fmt.Errorf("session validation failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	var session KratosSession
+	var session models.KratosSession
 	if err := json.NewDecoder(resp.Body).Decode(&session); err != nil {
 		return nil, fmt.Errorf("failed to decode session response: %w", err)
 	}
@@ -190,7 +192,7 @@ func (m *KratosAuthProvider) validateSession(sessionToken string) (*KratosSessio
 }
 
 // GetIdentity retrieves full identity information from Kratos Admin API
-func (m *KratosAuthProvider) GetIdentity(identityID string) (*KratosIdentity, error) {
+func (m *KratosAuthProvider) GetIdentity(identityID string) (*models.KratosIdentity, error) {
 	url := fmt.Sprintf("%s/admin/identities/%s", m.kratosAdminURL, identityID)
 
 	resp, err := http.Get(url)
@@ -203,7 +205,7 @@ func (m *KratosAuthProvider) GetIdentity(identityID string) (*KratosIdentity, er
 		return nil, fmt.Errorf("failed to get identity, status: %d", resp.StatusCode)
 	}
 
-	var identity KratosIdentity
+	var identity models.KratosIdentity
 	if err := json.NewDecoder(resp.Body).Decode(&identity); err != nil {
 		return nil, fmt.Errorf("failed to decode identity: %w", err)
 	}

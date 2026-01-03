@@ -8,7 +8,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/karima-store/internal/config"
-	"github.com/karima-store/internal/middleware"
 	"github.com/karima-store/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -19,7 +18,7 @@ type MockAuthService struct {
 	mock.Mock
 }
 
-func (m *MockAuthService) SyncUser(kratosIdentity *middleware.KratosIdentity, email string) (*models.User, error) {
+func (m *MockAuthService) SyncUser(kratosIdentity *models.KratosIdentity, email string) (*models.User, error) {
 	args := m.Called(kratosIdentity, email)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -98,8 +97,8 @@ func TestAuthHandler_Me_Success(t *testing.T) {
 
 	// Middleware to inject session manually for testing (simulating KratosMiddleware)
 	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("session", &middleware.KratosSession{
-			Identity: middleware.KratosIdentity{
+		c.Locals("session", &models.KratosSession{
+			Identity: models.KratosIdentity{
 				ID: "test-kratos-id",
 			},
 		})
@@ -158,8 +157,8 @@ func TestAuthHandler_Me_SyncError(t *testing.T) {
 
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("session", &middleware.KratosSession{
-			Identity: middleware.KratosIdentity{ID: "test-kratos-id"},
+		c.Locals("session", &models.KratosSession{
+			Identity: models.KratosIdentity{ID: "test-kratos-id"},
 		})
 		c.Locals("user_email", "test@example.com")
 		return c.Next()

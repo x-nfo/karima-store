@@ -10,6 +10,7 @@ import (
 func RegisterRoutes(app *fiber.App,
 	auth middleware.KratosMiddleware,
 	authHandler *handlers.AuthHandler,
+	userHandler *handlers.UserHandler,
 	productHandler *handlers.ProductHandler,
 	variantHandler *handlers.VariantHandler,
 	categoryHandler *handlers.CategoryHandler,
@@ -128,6 +129,19 @@ func RegisterRoutes(app *fiber.App,
 	app.Get("/api/v1/auth/login", authHandler.Login)
 	app.Get("/api/v1/auth/logout", authHandler.Logout)
 	app.Get("/api/v1/auth/me", auth.ValidateToken(), authHandler.Me) // Protected
+
+	// ===================================================================
+	// USER MANAGEMENT ENDPOINTS (Admin only)
+	// ===================================================================
+
+	// User management (Admin only)
+	app.Get("/api/v1/users", auth.ValidateToken(), auth.RequireAdmin(), userHandler.GetUsers)
+	app.Get("/api/v1/users/stats", auth.ValidateToken(), auth.RequireAdmin(), userHandler.GetUserStats)
+	app.Get("/api/v1/users/me", auth.ValidateToken(), userHandler.GetCurrentUser) // Any authenticated user
+	app.Get("/api/v1/users/:id", auth.ValidateToken(), auth.RequireAdmin(), userHandler.GetUser)
+	app.Put("/api/v1/users/:id/role", auth.ValidateToken(), auth.RequireAdmin(), userHandler.UpdateUserRole)
+	app.Put("/api/v1/users/:id/deactivate", auth.ValidateToken(), auth.RequireAdmin(), userHandler.DeactivateUser)
+	app.Put("/api/v1/users/:id/activate", auth.ValidateToken(), auth.RequireAdmin(), userHandler.ActivateUser)
 
 	// ===================================================================
 	// AUTHENTICATED USER ENDPOINTS (Requires valid Kratos session)

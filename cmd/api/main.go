@@ -111,7 +111,8 @@ func main() {
 	app.Use(middleware.NewRateLimiter(cfg))
 
 	// Initialize Ory Kratos middleware for authentication
-	authMiddleware := middleware.NewKratosMiddleware(cfg.KratosPublicURL, cfg.KratosAdminURL)
+	// Dependency injection happens later in the file, but we need middleware early.
+	// REFACTOR: We need authService before middleware.
 
 	// Initialize repositories
 	productRepo := repository.NewProductRepository(db.DB())
@@ -126,6 +127,7 @@ func main() {
 	userRepo := repository.NewUserRepository(db.DB())
 
 	// Initialize services
+	authService := services.NewAuthService(userRepo)
 	productService := services.NewProductService(productRepo, variantRepo, redis)
 	orderService := services.NewOrderService(orderRepo) // Added OrderService
 	variantService := services.NewVariantService(variantRepo, productRepo)
@@ -133,7 +135,10 @@ func main() {
 	pricingService := services.NewPricingService(productRepo, variantRepo, flashSaleRepo, couponRepo, shippingZoneRepo)
 	mediaService := services.NewMediaService(mediaRepo, productRepo, cfg)
 	notificationService := services.NewNotificationService(db, redis, cfg)
-	authService := services.NewAuthService(userRepo)
+	userService := services.NewUserService(userRepo)
+
+	// Initialize Ory Kratos middleware for authentication (MOVED AFTER SERVICES)
+	authMiddleware := middleware.NewKratosMiddleware(cfg.KratosPublicURL, cfg.KratosAdminURL, authService)
 
 	// Initialize Komerce client
 	komerceClient := komerce.NewClient(cfg.KomerceAPIKey, cfg.KomerceBaseURL)
@@ -171,12 +176,14 @@ func main() {
 	whatsappHandler := handlers.NewWhatsAppHandler(notificationService)
 	swaggerHandler := handlers.NewSwaggerHandler()
 	authHandler := handlers.NewAuthHandler(authService, cfg)
+	userHandler := handlers.NewUserHandler(userService)
 
 	// Register routes
 	routes.RegisterRoutes(
 		app,
 		authMiddleware,
 		authHandler,
+		userHandler,
 		productHandler,
 		variantHandler,
 		categoryHandler,

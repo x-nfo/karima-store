@@ -3,7 +3,7 @@ package handlers
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/karima-store/internal/config"
-	"github.com/karima-store/internal/middleware"
+	"github.com/karima-store/internal/models"
 	"github.com/karima-store/internal/services"
 )
 
@@ -63,7 +63,7 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 // @Router /auth/me [get]
 func (h *AuthHandler) Me(c *fiber.Ctx) error {
 	// This endpoint is protected by KratosMiddleware, so we should have locals
-	kratosSession, ok := c.Locals("session").(*middleware.KratosSession)
+	kratosSession, ok := c.Locals("session").(*models.KratosSession)
 	if !ok || kratosSession == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Not authenticated",

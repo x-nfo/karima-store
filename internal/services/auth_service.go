@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/karima-store/internal/middleware"
 	"github.com/karima-store/internal/models"
 	"github.com/karima-store/internal/repository"
 )
 
 type AuthService interface {
-	SyncUser(kratosIdentity *middleware.KratosIdentity, email string) (*models.User, error)
+	SyncUser(kratosIdentity *models.KratosIdentity, email string) (*models.User, error)
 	GetUserByID(id uint) (*models.User, error)
 }
 
@@ -23,7 +22,7 @@ func NewAuthService(userRepo repository.UserRepository) AuthService {
 }
 
 // SyncUser ensures that the Kratos user exists in the local database
-func (s *authService) SyncUser(kratosIdentity *middleware.KratosIdentity, email string) (*models.User, error) {
+func (s *authService) SyncUser(kratosIdentity *models.KratosIdentity, email string) (*models.User, error) {
 	// 1. Try to find by Kratos ID
 	user, err := s.userRepo.FindByKratosID(kratosIdentity.ID)
 	if err != nil {
