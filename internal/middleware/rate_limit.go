@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/storage/redis/v3"
 	"github.com/karima-store/internal/config"
+	"github.com/karima-store/internal/logger"
 )
 
 // NewRateLimiter creates a new rate limiting middleware backed by Redis
@@ -53,7 +54,11 @@ func NewRateLimiter(cfg *config.Config) fiber.Handler {
 		}
 	}
 
-	log.Printf("🛡️  Rate Limiter initialized: %d req / %s (Redis backend)", max, expiration)
+	if logger.Log != nil {
+		logger.Log.Infow("Rate limiter initialized", "max_requests", max, "window", expiration, "backend", "redis")
+	} else {
+		log.Printf("🛡️  Rate Limiter initialized: %d req / %s (Redis backend)", max, expiration)
+	}
 
 	return limiter.New(limiter.Config{
 		Max:        max,

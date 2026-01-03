@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/karima-store/internal/database"
+	"github.com/karima-store/internal/logger"
 	"github.com/karima-store/internal/models"
 	"github.com/karima-store/internal/repository"
 	"gorm.io/gorm"
@@ -159,7 +160,11 @@ func (s *checkoutService) Checkout(req *models.CheckoutRequest) (*models.Checkou
 	if s.notificationService != nil {
 		go func() {
 			if err := s.notificationService.SendOrderCreatedNotification(order); err != nil {
-				log.Printf("Failed to send order created notification: %v", err)
+				if logger.Log != nil {
+					logger.Log.Errorw("Failed to send order created notification", "order_number", order.OrderNumber, "error", err)
+				} else {
+					log.Printf("Failed to send order created notification: %v", err)
+				}
 			}
 		}()
 	}
@@ -239,7 +244,11 @@ func (s *checkoutService) ProcessPaymentNotification(notification *models.Midtra
 				defer func() {
 					if s.notificationService != nil {
 						if err := s.notificationService.SendPaymentSuccessNotification(order); err != nil {
-							log.Printf("Failed to send payment success notification: %v", err)
+							if logger.Log != nil {
+								logger.Log.Errorw("Failed to send payment success notification", "order_number", order.OrderNumber, "error", err)
+							} else {
+								log.Printf("Failed to send payment success notification: %v", err)
+							}
 						}
 					}
 				}()
@@ -279,7 +288,11 @@ func (s *checkoutService) ProcessPaymentNotification(notification *models.Midtra
 			}
 		default:
 			// Just return, no error to avoid retry storm from webhook
-			log.Printf("Unknown transaction status: %s", notification.TransactionStatus)
+			if logger.Log != nil {
+				logger.Log.Warnw("Unknown transaction status", "status", notification.TransactionStatus, "order_id", notification.OrderID)
+			} else {
+				log.Printf("Unknown transaction status: %s", notification.TransactionStatus)
+			}
 		}
 
 		return nil

@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/karima-store/internal/config"
+	"github.com/karima-store/internal/logger"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // DBPoolConfig holds configuration for database connection pool
@@ -89,11 +90,11 @@ func NewPostgreSQL(cfg *config.Config) (*PostgreSQL, error) {
 	)
 
 	// Configure GORM logger
-	var gormLogger logger.Interface
+	var gormLogger gormlogger.Interface
 	if cfg.AppEnv == "production" {
-		gormLogger = logger.Default.LogMode(logger.Silent)
+		gormLogger = gormlogger.Default.LogMode(gormlogger.Silent)
 	} else {
-		gormLogger = logger.Default.LogMode(logger.Info)
+		gormLogger = gormlogger.Default.LogMode(gormlogger.Info)
 	}
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
@@ -129,7 +130,11 @@ func NewPostgreSQL(cfg *config.Config) (*PostgreSQL, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	log.Println("Successfully connected to PostgreSQL database")
+	if logger.Log != nil {
+		logger.Log.Info("Successfully connected to PostgreSQL database")
+	} else {
+		log.Println("Successfully connected to PostgreSQL database")
+	}
 
 	return &PostgreSQL{db: db, cfg: cfg}, nil
 }
@@ -235,7 +240,11 @@ func (p *PostgreSQL) startHealthMonitoring() {
 					p.statsMutex.Lock()
 					p.stats.HealthStatus = "unhealthy"
 					p.statsMutex.Unlock()
-					log.Printf("Database health check failed: %v", err)
+					if logger.Log != nil {
+						logger.Log.Errorw("Database health check failed", "error", err)
+					} else {
+						log.Printf("Database health check failed: %v", err)
+					}
 				} else {
 					p.statsMutex.Lock()
 					p.stats.HealthStatus = "healthy"

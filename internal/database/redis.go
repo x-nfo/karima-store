@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/karima-store/internal/config"
+	"github.com/karima-store/internal/logger"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -55,7 +56,11 @@ func NewRedis(cfg *config.Config) (RedisClient, error) {
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
-	log.Println("Successfully connected to Redis")
+	if logger.Log != nil {
+		logger.Log.Info("Successfully connected to Redis")
+	} else {
+		log.Println("Successfully connected to Redis")
+	}
 
 	return &redisStart{client: client}, nil
 }

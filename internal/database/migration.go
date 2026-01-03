@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/golang-migrate/migrate/v4"
+	"github.com/karima-store/internal/logger"
 )
 
 // Migrate runs database migrations using golang-migrate
@@ -36,10 +37,18 @@ func (p *PostgreSQL) Migrate(migrationsPath string) error {
 	defer func() {
 		srcErr, dbErr := m.Close()
 		if srcErr != nil {
-			log.Printf("Error closing migrate source: %v", srcErr)
+			if logger.Log != nil {
+				logger.Log.Errorw("Error closing migrate source", "error", srcErr)
+			} else {
+				log.Printf("Error closing migrate source: %v", srcErr)
+			}
 		}
 		if dbErr != nil {
-			log.Printf("Error closing migrate database: %v", dbErr)
+			if logger.Log != nil {
+				logger.Log.Errorw("Error closing migrate database", "error", dbErr)
+			} else {
+				log.Printf("Error closing migrate database: %v", dbErr)
+			}
 		}
 	}()
 
@@ -48,7 +57,11 @@ func (p *PostgreSQL) Migrate(migrationsPath string) error {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	log.Println("Database migrations completed successfully")
+	if logger.Log != nil {
+		logger.Log.Info("Database migrations completed successfully")
+	} else {
+		log.Println("Database migrations completed successfully")
+	}
 	return nil
 }
 
@@ -75,10 +88,18 @@ func (p *PostgreSQL) MigrateDown(migrationsPath string) error {
 	defer func() {
 		srcErr, dbErr := m.Close()
 		if srcErr != nil {
-			log.Printf("Error closing migrate source: %v", srcErr)
+			if logger.Log != nil {
+				logger.Log.Errorw("Error closing migrate source", "error", srcErr)
+			} else {
+				log.Printf("Error closing migrate source: %v", srcErr)
+			}
 		}
 		if dbErr != nil {
-			log.Printf("Error closing migrate database: %v", dbErr)
+			if logger.Log != nil {
+				logger.Log.Errorw("Error closing migrate database", "error", dbErr)
+			} else {
+				log.Printf("Error closing migrate database: %v", dbErr)
+			}
 		}
 	}()
 
@@ -86,7 +107,11 @@ func (p *PostgreSQL) MigrateDown(migrationsPath string) error {
 		return fmt.Errorf("failed to rollback migration: %w", err)
 	}
 
-	log.Println("Database rollback completed successfully")
+	if logger.Log != nil {
+		logger.Log.Info("Database rollback completed successfully")
+	} else {
+		log.Println("Database rollback completed successfully")
+	}
 	return nil
 }
 
@@ -113,10 +138,18 @@ func (p *PostgreSQL) MigrateSteps(migrationsPath string, steps int) error {
 	defer func() {
 		srcErr, dbErr := m.Close()
 		if srcErr != nil {
-			log.Printf("Error closing migrate source: %v", srcErr)
+			if logger.Log != nil {
+				logger.Log.Errorw("Error closing migrate source", "error", srcErr)
+			} else {
+				log.Printf("Error closing migrate source: %v", srcErr)
+			}
 		}
 		if dbErr != nil {
-			log.Printf("Error closing migrate database: %v", dbErr)
+			if logger.Log != nil {
+				logger.Log.Errorw("Error closing migrate database", "error", dbErr)
+			} else {
+				log.Printf("Error closing migrate database: %v", dbErr)
+			}
 		}
 	}()
 
@@ -124,7 +157,11 @@ func (p *PostgreSQL) MigrateSteps(migrationsPath string, steps int) error {
 		return fmt.Errorf("failed to run migration steps: %w", err)
 	}
 
-	log.Printf("Database migration steps (%d) completed successfully", steps)
+	if logger.Log != nil {
+		logger.Log.Infow("Database migration steps completed successfully", "steps", steps)
+	} else {
+		log.Printf("Database migration steps (%d) completed successfully", steps)
+	}
 	return nil
 }
 
@@ -151,10 +188,18 @@ func (p *PostgreSQL) GetMigrationVersion(migrationsPath string) (uint, bool, err
 	defer func() {
 		srcErr, dbErr := m.Close()
 		if srcErr != nil {
-			log.Printf("Error closing migrate source: %v", srcErr)
+			if logger.Log != nil {
+				logger.Log.Errorw("Error closing migrate source", "error", srcErr)
+			} else {
+				log.Printf("Error closing migrate source: %v", srcErr)
+			}
 		}
 		if dbErr != nil {
-			log.Printf("Error closing migrate database: %v", dbErr)
+			if logger.Log != nil {
+				logger.Log.Errorw("Error closing migrate database", "error", dbErr)
+			} else {
+				log.Printf("Error closing migrate database: %v", dbErr)
+			}
 		}
 	}()
 
@@ -192,10 +237,18 @@ func (p *PostgreSQL) ForceVersion(migrationsPath string, version int) error {
 	defer func() {
 		srcErr, dbErr := m.Close()
 		if srcErr != nil {
-			log.Printf("Error closing migrate source: %v", srcErr)
+			if logger.Log != nil {
+				logger.Log.Errorw("Error closing migrate source", "error", srcErr)
+			} else {
+				log.Printf("Error closing migrate source: %v", srcErr)
+			}
 		}
 		if dbErr != nil {
-			log.Printf("Error closing migrate database: %v", dbErr)
+			if logger.Log != nil {
+				logger.Log.Errorw("Error closing migrate database", "error", dbErr)
+			} else {
+				log.Printf("Error closing migrate database: %v", dbErr)
+			}
 		}
 	}()
 
@@ -203,6 +256,10 @@ func (p *PostgreSQL) ForceVersion(migrationsPath string, version int) error {
 		return fmt.Errorf("failed to force migration version: %w", err)
 	}
 
-	log.Printf("Migration version forced to %d", version)
+	if logger.Log != nil {
+		logger.Log.Infow("Migration version forced", "version", version)
+	} else {
+		log.Printf("Migration version forced to %d", version)
+	}
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/karima-store/internal/config"
 	"github.com/karima-store/internal/database"
 	"github.com/karima-store/internal/fonnte"
+	"github.com/karima-store/internal/logger"
 	"github.com/karima-store/internal/models"
 )
 
@@ -57,7 +58,11 @@ func (s *notificationService) sendWhatsAppAsync(phoneNumber, message string, wg 
 	}
 
 	if s.fonnteClient == nil {
-		log.Printf("[WhatsApp] Fonnte client not configured, skipping message to %s", phoneNumber)
+		if logger.Log != nil {
+			logger.Log.Warnw("Fonnte client not configured, skipping WhatsApp message", "phone", phoneNumber)
+		} else {
+			log.Printf("[WhatsApp] Fonnte client not configured, skipping message to %s", phoneNumber)
+		}
 		return
 	}
 
@@ -66,21 +71,37 @@ func (s *notificationService) sendWhatsAppAsync(phoneNumber, message string, wg 
 
 	resp, err := s.fonnteClient.SendMessage(formattedPhone, message)
 	if err != nil {
-		log.Printf("[WhatsApp] Failed to send message to %s: %v", formattedPhone, err)
+		if logger.Log != nil {
+			logger.Log.Errorw("Failed to send WhatsApp message", "phone", formattedPhone, "error", err)
+		} else {
+			log.Printf("[WhatsApp] Failed to send message to %s: %v", formattedPhone, err)
+		}
 		return
 	}
 
 	if resp.Status {
-		log.Printf("[WhatsApp] Message sent successfully to %s (ID: %v)", formattedPhone, resp.ID)
+		if logger.Log != nil {
+			logger.Log.Infow("WhatsApp message sent successfully", "phone", formattedPhone, "message_id", resp.ID)
+		} else {
+			log.Printf("[WhatsApp] Message sent successfully to %s (ID: %v)", formattedPhone, resp.ID)
+		}
 	} else {
-		log.Printf("[WhatsApp] Message failed to %s: %s", formattedPhone, resp.Detail)
+		if logger.Log != nil {
+			logger.Log.Errorw("WhatsApp message failed", "phone", formattedPhone, "detail", resp.Detail)
+		} else {
+			log.Printf("[WhatsApp] Message failed to %s: %s", formattedPhone, resp.Detail)
+		}
 	}
 }
 
 // SendWhatsAppMessage sends a message via WhatsApp Gateway API (Fonnte)
 func (s *notificationService) SendWhatsAppMessage(order *models.Order, message string, recipient string) error {
 	if s.fonnteClient == nil {
-		log.Printf("[WhatsApp] Fonnte client not configured")
+		if logger.Log != nil {
+			logger.Log.Warnw("Fonnte client not configured")
+		} else {
+			log.Printf("[WhatsApp] Fonnte client not configured")
+		}
 		return fmt.Errorf("fonnte client not configured")
 	}
 
@@ -96,14 +117,22 @@ func (s *notificationService) SendWhatsAppMessage(order *models.Order, message s
 		return fmt.Errorf("WhatsApp message failed: %s", resp.Detail)
 	}
 
-	log.Printf("[WhatsApp] Message sent to %s for order %s", formattedPhone, order.OrderNumber)
+	if logger.Log != nil {
+		logger.Log.Infow("WhatsApp message sent for order", "phone", formattedPhone, "order_number", order.OrderNumber)
+	} else {
+		log.Printf("[WhatsApp] Message sent to %s for order %s", formattedPhone, order.OrderNumber)
+	}
 	return nil
 }
 
 // SendOrderCreatedNotification sends notification when order is created (ASYNC)
 func (s *notificationService) SendOrderCreatedNotification(order *models.Order) error {
 	if s.fonnteClient == nil {
-		log.Printf("[WhatsApp] Fonnte not configured, skipping order created notification for %s", order.OrderNumber)
+		if logger.Log != nil {
+			logger.Log.Warnw("Fonnte not configured, skipping order created notification", "order_number", order.OrderNumber)
+		} else {
+			log.Printf("[WhatsApp] Fonnte not configured, skipping order created notification for %s", order.OrderNumber)
+		}
 		return nil
 	}
 
@@ -121,21 +150,33 @@ func (s *notificationService) SendOrderCreatedNotification(order *models.Order) 
 	// Get customer phone from order
 	customerPhone := order.ShippingPhone
 	if customerPhone == "" {
-		log.Printf("[WhatsApp] No phone number for order %s", order.OrderNumber)
+		if logger.Log != nil {
+			logger.Log.Warnw("No phone number for order", "order_number", order.OrderNumber)
+		} else {
+			log.Printf("[WhatsApp] No phone number for order %s", order.OrderNumber)
+		}
 		return nil
 	}
 
 	// Send asynchronously using goroutine
 	go s.sendWhatsAppAsync(customerPhone, message, nil)
 
-	log.Printf("[WhatsApp] Order created notification queued for order %s", order.OrderNumber)
+	if logger.Log != nil {
+		logger.Log.Infow("Order created notification queued", "order_number", order.OrderNumber)
+	} else {
+		log.Printf("[WhatsApp] Order created notification queued for order %s", order.OrderNumber)
+	}
 	return nil
 }
 
 // SendPaymentSuccessNotification sends notification when payment is successful (ASYNC)
 func (s *notificationService) SendPaymentSuccessNotification(order *models.Order) error {
 	if s.fonnteClient == nil {
-		log.Printf("[WhatsApp] Fonnte not configured, skipping payment success notification for %s", order.OrderNumber)
+		if logger.Log != nil {
+			logger.Log.Warnw("Fonnte not configured, skipping payment success notification", "order_number", order.OrderNumber)
+		} else {
+			log.Printf("[WhatsApp] Fonnte not configured, skipping payment success notification for %s", order.OrderNumber)
+		}
 		return nil
 	}
 
@@ -153,14 +194,22 @@ func (s *notificationService) SendPaymentSuccessNotification(order *models.Order
 	// Get customer phone
 	customerPhone := order.ShippingPhone
 	if customerPhone == "" {
-		log.Printf("[WhatsApp] No phone number for order %s", order.OrderNumber)
+		if logger.Log != nil {
+			logger.Log.Warnw("No phone number for order", "order_number", order.OrderNumber)
+		} else {
+			log.Printf("[WhatsApp] No phone number for order %s", order.OrderNumber)
+		}
 		return nil
 	}
 
 	// Send asynchronously using goroutine
 	go s.sendWhatsAppAsync(customerPhone, message, nil)
 
-	log.Printf("[WhatsApp] Payment success notification queued for order %s", order.OrderNumber)
+	if logger.Log != nil {
+		logger.Log.Infow("Payment success notification queued", "order_number", order.OrderNumber)
+	} else {
+		log.Printf("[WhatsApp] Payment success notification queued for order %s", order.OrderNumber)
+	}
 	return nil
 }
 
@@ -224,13 +273,21 @@ func (s *notificationService) SendTestWhatsAppMessage(phoneNumber string, messag
 		return fmt.Errorf("test message failed: %s", resp.Detail)
 	}
 
-	log.Printf("[WhatsApp] Test message sent to %s", formattedPhone)
+	if logger.Log != nil {
+		logger.Log.Infow("Test WhatsApp message sent", "phone", formattedPhone)
+	} else {
+		log.Printf("[WhatsApp] Test message sent to %s", formattedPhone)
+	}
 	return nil
 }
 
 // ProcessWhatsAppWebhook handles WhatsApp webhook events
 func (s *notificationService) ProcessWhatsAppWebhook(data map[string]interface{}) error {
-	log.Printf("[WhatsApp Webhook] Received: %v", data)
+	if logger.Log != nil {
+		logger.Log.Infow("WhatsApp webhook received", "data", data)
+	} else {
+		log.Printf("[WhatsApp Webhook] Received: %v", data)
+	}
 	// Process webhook data as needed
 	return nil
 }

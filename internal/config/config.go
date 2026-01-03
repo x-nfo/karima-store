@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
+	"github.com/karima-store/internal/logger"
 )
 
 type Config struct {
@@ -93,7 +94,11 @@ type Config struct {
 func Load() *Config {
 	// Load .env file
 	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: .env file not found, using environment variables")
+		if logger.Log != nil {
+			logger.Log.Warnw("Environment file not found, using environment variables")
+		} else {
+			log.Println("Warning: .env file not found, using environment variables")
+		}
 	}
 
 	return &Config{
@@ -227,18 +232,54 @@ func (c *Config) Validate() {
 
 		// Validate Redis password in production
 		if c.RedisPassword == "" {
-			log.Println("⚠️  WARNING: REDIS_PASSWORD not set (recommended for production)")
+			if logger.Log != nil {
+				logger.Log.Warnw("Redis password not set (recommended for production)")
+			} else {
+				log.Println("⚠️  WARNING: REDIS_PASSWORD not set (recommended for production)")
+			}
 		}
 	}
 
 	// If there are any errors, log them and exit
 	if len(errors) > 0 {
-		log.Println("❌ Configuration validation failed:")
-		for _, err := range errors {
-			log.Printf("  - %s", err)
+		if logger.Log != nil {
+			logger.Log.Errorw("Configuration validation failed", "errors", errors)
+			logger.Log.Fatal("Application cannot start due to missing required configuration")
+		} else {
+			log.Println("❌ Configuration validation failed:")
+			for _, err := range errors {
+				log.Printf("  - %s", err)
+			}
+			log.Fatal("Application cannot start due to missing required configuration")
 		}
-		log.Fatal("Application cannot start due to missing required configuration")
 	}
 
-	log.Println("✅ Configuration validated successfully")
+	if logger.Log != nil {
+		logger.Log.Info("Configuration validated successfully")
+	} else {
+		log.Println("✅ Configuration validated successfully")
+	}
+}
+
+// InitLogger initializes the structured logger based on configuration
+func (c *Config) InitLogger() error {
+	cfg := &logger.Config{
+		Level:      c.LogLevel,
+		Output:     c.LogFile,
+		Format:     "json",
+		Env:        c.AppEnv,
+		WithCaller: true,
+	}
+
+	// Use console format in development
+	if c.AppEnv == "development" {
+		cfg.Format = "console"
+	}
+
+	// Use stdout if log file is not specified
+	if c.LogFile == "" {
+		cfg.Output = "stdout"
+	}
+
+	return logger.Init(cfg)
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/karima-store/internal/database"
+	"github.com/karima-store/internal/logger"
 	"github.com/karima-store/internal/services"
 )
 
@@ -455,7 +456,11 @@ func (h *PricingHandler) GetPricingInfo(c *fiber.Ctx) error {
 
 	// Store in cache with 1 hour expiration
 	if err := h.redisClient.Set(c.Context(), cacheKey, response, 1*time.Hour); err != nil {
-		log.Printf("Failed to cache pricing data: %v", err)
+		if logger.Log != nil {
+			logger.Log.Errorw("Failed to cache pricing data", "cache_key", cacheKey, "error", err)
+		} else {
+			log.Printf("Failed to cache pricing data: %v", err)
+		}
 	}
 
 	return c.JSON(fiber.Map{

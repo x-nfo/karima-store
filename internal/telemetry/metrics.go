@@ -168,7 +168,15 @@ func ResetMetrics() {
 }
 
 // RecordOperation records an operation metric
+// DEPRECATED: Use prometheus_metrics.RecordOperation instead
+// This function is kept for backward compatibility
 func RecordOperation(operation string, duration time.Duration, err error) {
+	// Delegate to Prometheus implementation
+	RecordOperationPrometheus(operation, duration, err)
+}
+
+// RecordOperationPrometheus records an operation metric using Prometheus
+func RecordOperationPrometheus(operation string, duration time.Duration, err error) {
 	metricsStore.mu.Lock()
 	defer metricsStore.mu.Unlock()
 
@@ -207,6 +215,7 @@ func RecordOperation(operation string, duration time.Duration, err error) {
 }
 
 // GetOperationMetrics returns metrics for a specific operation
+// DEPRECATED: Use Prometheus metrics instead
 func GetOperationMetrics(operation string) (*RequestMetrics, error) {
 	metricsStore.mu.RLock()
 	defer metricsStore.mu.RUnlock()

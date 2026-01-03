@@ -7,6 +7,7 @@ import (
 
 	"github.com/karima-store/internal/config"
 	"github.com/karima-store/internal/database"
+	"github.com/karima-store/internal/logger"
 	"github.com/karima-store/internal/models"
 	"github.com/karima-store/internal/repository"
 	"github.com/stretchr/testify/assert"
@@ -141,7 +142,11 @@ func createTestRedis() database.RedisClient {
 	cfg := config.TestConfigWithRedis()
 	redisClient, err := database.NewRedis(cfg)
 	if err != nil {
-		log.Printf("Warning: Failed to connect to test Redis: %v", err)
+		if logger.Log != nil {
+			logger.Log.Warnw("Failed to connect to test Redis", "error", err)
+		} else {
+			log.Printf("Warning: Failed to connect to test Redis: %v", err)
+		}
 		return nil
 	}
 	return redisClient

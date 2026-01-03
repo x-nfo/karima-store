@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/karima-store/internal/errors"
+	"github.com/karima-store/internal/logger"
 )
 
 // TraceID represents a unique trace identifier
@@ -116,14 +117,25 @@ func UpdateSpan(span *Span) {
 
 // logTrace logs trace information
 func LogTrace(span *Span) {
-	// Using standard log for now, can be replaced with structured logger
-	log.Printf("Trace: %s, Span: %s, Operation: %s, Duration: %v, Status: %s",
-		span.TraceID,
-		span.SpanID,
-		span.Operation,
-		span.Duration,
-		span.Status,
-	)
+	if logger.Log != nil {
+		logger.Log.Infow("Trace completed",
+			"trace_id", span.TraceID,
+			"span_id", span.SpanID,
+			"operation", span.Operation,
+			"duration_ms", span.Duration.Milliseconds(),
+			"status", span.Status,
+			"error", span.Error,
+		)
+	} else {
+		// Using standard log for now, can be replaced with structured logger
+		log.Printf("Trace: %s, Span: %s, Operation: %s, Duration: %v, Status: %s",
+			span.TraceID,
+			span.SpanID,
+			span.Operation,
+			span.Duration,
+			span.Status,
+		)
+	}
 }
 
 // StartSpan starts a new span for an operation

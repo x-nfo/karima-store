@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/karima-store/internal/config"
 	"github.com/karima-store/internal/database"
+	"github.com/karima-store/internal/logger"
 )
 
 func main() {
@@ -27,10 +28,19 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
+	// Initialize structured logger
+	if err := cfg.InitLogger(); err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+
 	// Initialize database connection
 	db, err := database.NewPostgreSQL(cfg)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		if logger.Log != nil {
+			logger.Log.Fatalw("Failed to connect to database", "error", err)
+		} else {
+			log.Fatalf("Failed to connect to database: %v", err)
+		}
 	}
 	defer db.Close()
 
@@ -38,26 +48,42 @@ func main() {
 	switch *action {
 	case "up":
 		if err := db.Migrate(*migrationsPath); err != nil {
-			log.Fatalf("Migration failed: %v", err)
+			if logger.Log != nil {
+				logger.Log.Fatalw("Migration failed", "error", err)
+			} else {
+				log.Fatalf("Migration failed: %v", err)
+			}
 		}
 		fmt.Println("✅ Migrations applied successfully")
 
 	case "down":
 		if err := db.MigrateDown(*migrationsPath); err != nil {
-			log.Fatalf("Migration rollback failed: %v", err)
+			if logger.Log != nil {
+				logger.Log.Fatalw("Migration rollback failed", "error", err)
+			} else {
+				log.Fatalf("Migration rollback failed: %v", err)
+			}
 		}
 		fmt.Println("✅ Migration rolled back successfully")
 
 	case "steps":
 		if err := db.MigrateSteps(*migrationsPath, *steps); err != nil {
-			log.Fatalf("Migration steps failed: %v", err)
+			if logger.Log != nil {
+				logger.Log.Fatalw("Migration steps failed", "error", err, "steps", *steps)
+			} else {
+				log.Fatalf("Migration steps failed: %v", err)
+			}
 		}
 		fmt.Printf("✅ %d migration step(s) completed successfully\n", *steps)
 
 	case "version":
 		version, dirty, err := db.GetMigrationVersion(*migrationsPath)
 		if err != nil {
-			log.Fatalf("Failed to get migration version: %v", err)
+			if logger.Log != nil {
+				logger.Log.Fatalw("Failed to get migration version", "error", err)
+			} else {
+				log.Fatalf("Failed to get migration version: %v", err)
+			}
 		}
 		if dirty {
 			fmt.Printf("⚠️  Current migration version: %d (DIRTY)\n", version)
@@ -69,10 +95,18 @@ func main() {
 
 	case "force":
 		if *version < 0 {
-			log.Fatal("Version must be a non-negative integer")
+			if logger.Log != nil {
+				logger.Log.Fatal("Version must be a non-negative integer")
+			} else {
+				log.Fatal("Version must be a non-negative integer")
+			}
 		}
 		if err := db.ForceVersion(*migrationsPath, *version); err != nil {
-			log.Fatalf("Failed to force migration version: %v", err)
+			if logger.Log != nil {
+				logger.Log.Fatalw("Failed to force migration version", "error", err, "version", *version)
+			} else {
+				log.Fatalf("Failed to force migration version: %v", err)
+			}
 		}
 		fmt.Printf("✅ Migration version forced to %d\n", *version)
 
