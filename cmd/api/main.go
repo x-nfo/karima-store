@@ -109,6 +109,7 @@ func main() {
 	app.Use(helmet.New()) // Security Headers
 	app.Use(middleware.CORS(cfg.CORSOrigin))
 	app.Use(middleware.NewRateLimiter(cfg))
+	app.Use(middleware.MetricsMiddleware()) // Prometheus metrics collection
 
 	// Initialize Ory Kratos middleware for authentication
 	// Dependency injection happens later in the file, but we need middleware early.

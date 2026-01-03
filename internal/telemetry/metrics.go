@@ -1,231 +1,100 @@
 package telemetry
 
 import (
-	"runtime"
-	"sync"
+	"strconv"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/karima-store/internal/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-// Metrics holds application metrics
-type Metrics struct {
-	RequestCount        int64         `json:"request_count"`
-	ResponseTime        time.Duration `json:"response_time"`
-	ErrorRate           float64       `json:"error_rate"`
-	ActiveGoroutines    int           `json:"active_goroutines"`
-	MemoryUsage         uint64        `json:"memory_usage"`
-	TotalErrors         int64         `json:"total_errors"`
-	SuccessCount        int64         `json:"success_count"`
-	AverageResponseTime time.Duration `json:"average_response_time"`
-}
+// Custom registry to avoid polluting the global registry
+var registry = prometheus.NewRegistry()
 
-// MetricsStore stores metrics data
-type MetricsStore struct {
-	mu                sync.RWMutex
-	requests          map[string]*RequestMetrics
-	totalRequests     int64
-	totalErrors       int64
-	totalSuccess      int64
-	totalResponseTime time.Duration
-}
-
-// RequestMetrics holds metrics for a specific endpoint
-type RequestMetrics struct {
-	Path         string
-	Method       string
-	Count        int64
-	ErrorCount   int64
-	SuccessCount int64
-	TotalTime    time.Duration
-	MinTime      time.Duration
-	MaxTime      time.Duration
-}
-
+// HTTP request metrics
 var (
-	metricsStore = &MetricsStore{
-		requests: make(map[string]*RequestMetrics),
-	}
+	HttpRequestsTotal = promauto.With(registry).NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "http_requests_total",
+			Help: "Total number of HTTP requests",
+		},
+		[]string{"method", "path", "status"},
+	)
+
+	HttpRequestDuration = promauto.With(registry).NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "http_request_duration_seconds",
+			Help:    "HTTP request duration in seconds",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"method", "path"},
+	)
+
+	HttpRequestsInProgress = promauto.With(registry).NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "http_requests_in_progress",
+			Help: "Number of HTTP requests currently in progress",
+		},
+		[]string{"method", "path"},
+	)
 )
 
-// RecordMetrics records metrics for a request
-func RecordMetrics(c *fiber.Ctx, duration time.Duration, err error) {
-	metricsStore.mu.Lock()
-	defer metricsStore.mu.Unlock()
+// Operation metrics
+var (
+	OperationsTotal = promauto.With(registry).NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "operations_total",
+			Help: "Total number of operations performed",
+		},
+		[]string{"operation", "status"},
+	)
 
-	// Generate key for the endpoint
-	key := c.Method() + ":" + c.Path()
+	OperationDuration = promauto.With(registry).NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "operation_duration_seconds",
+			Help:    "Operation duration in seconds",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"operation"},
+	)
+)
 
-	// Get or create request metrics
-	metrics, exists := metricsStore.requests[key]
-	if !exists {
-		metrics = &RequestMetrics{
-			Path:    c.Path(),
-			Method:  c.Method(),
-			MinTime: duration,
-			MaxTime: duration,
-		}
-		metricsStore.requests[key] = metrics
-	}
-
-	// Update metrics
-	metrics.Count++
-	metrics.TotalTime += duration
-
-	// Update min/max times
-	if duration < metrics.MinTime {
-		metrics.MinTime = duration
-	}
-	if duration > metrics.MaxTime {
-		metrics.MaxTime = duration
-	}
-
-	// Track success/error
-	statusCode := c.Response().StatusCode()
-	if statusCode >= 400 {
-		metrics.ErrorCount++
-		metricsStore.totalErrors++
-	} else {
-		metrics.SuccessCount++
-		metricsStore.totalSuccess++
-	}
-
-	metricsStore.totalRequests++
-	metricsStore.totalResponseTime += duration
+// GetRegistry returns the custom Prometheus registry
+func GetRegistry() *prometheus.Registry {
+	return registry
 }
 
-// GetMetrics returns current application metrics
-func GetMetrics() Metrics {
-	metricsStore.mu.RLock()
-	defer metricsStore.mu.RUnlock()
-
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	var avgResponseTime time.Duration
-	if metricsStore.totalRequests > 0 {
-		avgResponseTime = metricsStore.totalResponseTime / time.Duration(metricsStore.totalRequests)
-	}
-
-	var errorRate float64
-	if metricsStore.totalRequests > 0 {
-		errorRate = float64(metricsStore.totalErrors) / float64(metricsStore.totalRequests) * 100
-	}
-
-	return Metrics{
-		RequestCount:        metricsStore.totalRequests,
-		ResponseTime:        avgResponseTime,
-		ErrorRate:           errorRate,
-		ActiveGoroutines:    runtime.NumGoroutine(),
-		MemoryUsage:         m.Alloc,
-		TotalErrors:         metricsStore.totalErrors,
-		SuccessCount:        metricsStore.totalSuccess,
-		AverageResponseTime: avgResponseTime,
-	}
+// IncrementInProgress increments the in-progress request counter
+func IncrementInProgress(method, path string) {
+	HttpRequestsInProgress.WithLabelValues(method, path).Inc()
 }
 
-// GetEndpointMetrics returns metrics for a specific endpoint
-func GetEndpointMetrics(path, method string) (*RequestMetrics, error) {
-	metricsStore.mu.RLock()
-	defer metricsStore.mu.RUnlock()
-
-	key := method + ":" + path
-	metrics, exists := metricsStore.requests[key]
-	if !exists {
-		return nil, errors.NewNotFoundError("Endpoint metrics not found")
-	}
-
-	// Return a copy to avoid race conditions
-	copy := *metrics
-	return &copy, nil
+// DecrementInProgress decrements the in-progress request counter
+func DecrementInProgress(method, path string) {
+	HttpRequestsInProgress.WithLabelValues(method, path).Dec()
 }
 
-// GetAllEndpointMetrics returns metrics for all endpoints
-func GetAllEndpointMetrics() map[string]*RequestMetrics {
-	metricsStore.mu.RLock()
-	defer metricsStore.mu.RUnlock()
+// RecordHTTPRequest records HTTP request metrics
+func RecordHTTPRequest(method, path string, statusCode int, duration time.Duration) {
+	status := strconv.Itoa(statusCode)
 
-	result := make(map[string]*RequestMetrics)
-	for key, metrics := range metricsStore.requests {
-		copy := *metrics
-		result[key] = &copy
-	}
-
-	return result
-}
-
-// ResetMetrics resets all metrics
-func ResetMetrics() {
-	metricsStore.mu.Lock()
-	defer metricsStore.mu.Unlock()
-
-	metricsStore.requests = make(map[string]*RequestMetrics)
-	metricsStore.totalRequests = 0
-	metricsStore.totalErrors = 0
-	metricsStore.totalSuccess = 0
-	metricsStore.totalResponseTime = 0
-}
-
-// RecordOperation records an operation metric
-// DEPRECATED: Use prometheus_metrics.RecordOperation instead
-// This function is kept for backward compatibility
-func RecordOperation(operation string, duration time.Duration, err error) {
-	// Delegate to Prometheus implementation
-	RecordOperationPrometheus(operation, duration, err)
+	HttpRequestsTotal.WithLabelValues(method, path, status).Inc()
+	HttpRequestDuration.WithLabelValues(method, path).Observe(duration.Seconds())
 }
 
 // RecordOperationPrometheus records an operation metric using Prometheus
 func RecordOperationPrometheus(operation string, duration time.Duration, err error) {
-	metricsStore.mu.Lock()
-	defer metricsStore.mu.Unlock()
-
-	key := "operation:" + operation
-	metrics, exists := metricsStore.requests[key]
-	if !exists {
-		metrics = &RequestMetrics{
-			Path:    operation,
-			Method:  "OPERATION",
-			MinTime: duration,
-			MaxTime: duration,
-		}
-		metricsStore.requests[key] = metrics
-	}
-
-	metrics.Count++
-	metrics.TotalTime += duration
-
-	if duration < metrics.MinTime {
-		metrics.MinTime = duration
-	}
-	if duration > metrics.MaxTime {
-		metrics.MaxTime = duration
-	}
-
+	status := "success"
 	if err != nil {
-		metrics.ErrorCount++
-		metricsStore.totalErrors++
-	} else {
-		metrics.SuccessCount++
-		metricsStore.totalSuccess++
+		status = "error"
 	}
-
-	metricsStore.totalRequests++
-	metricsStore.totalResponseTime += duration
+	OperationsTotal.WithLabelValues(operation, status).Inc()
+	OperationDuration.WithLabelValues(operation).Observe(duration.Seconds())
 }
 
-// GetOperationMetrics returns metrics for a specific operation
-// DEPRECATED: Use Prometheus metrics instead
-func GetOperationMetrics(operation string) (*RequestMetrics, error) {
-	metricsStore.mu.RLock()
-	defer metricsStore.mu.RUnlock()
-
-	key := "operation:" + operation
-	metrics, exists := metricsStore.requests[key]
-	if !exists {
-		return nil, errors.NewNotFoundError("Operation metrics not found")
-	}
-
-	copy := *metrics
-	return &copy, nil
+// UpdateRuntimeMetrics updates Go runtime metrics
+// Note: Go runtime metrics are automatically collected by Prometheus
+func UpdateRuntimeMetrics() {
+	// Prometheus automatically collects Go runtime metrics
+	// This function is kept for backward compatibility
 }

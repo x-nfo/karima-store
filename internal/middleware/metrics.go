@@ -2,9 +2,9 @@ package middleware
 
 import (
 	"fmt"
-	"net/http/httptest"
 	"time"
 
+	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/karima-store/internal/telemetry"
@@ -16,7 +16,14 @@ func MetricsMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		startTime := time.Now()
 		method := c.Method()
-		path := c.Path()
+
+		// Use c.Route().Path to get the route pattern (e.g., /product/:id) instead of
+		// the actual path (e.g., /product/123) to avoid high cardinality issues
+		path := c.Route().Path
+		if path == "" {
+			// Fallback to c.Path() if route path is not available
+			path = c.Path()
+		}
 
 		// Increment in-progress counter
 		telemetry.IncrementInProgress(method, path)
@@ -45,30 +52,19 @@ func MetricsMiddleware() fiber.Handler {
 	}
 }
 
-// MetricsHandler returns a handler that exposes Prometheus metrics
+// MetricsHandler returns a handler that exposes Prometheus metrics using the adaptor pattern
 func MetricsHandler() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		// Set content type for Prometheus format
-		c.Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	// Get the custom Prometheus registry
+	registry := telemetry.GetRegistry()
 
-		// Get Prometheus registry
-		registry := telemetry.GetRegistry()
+	// Create the Prometheus HTTP handler with proper options
+	promHandler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+		EnableOpenMetrics: false,
+	})
 
-		// Create a test request to use with the Prometheus handler
-		req := httptest.NewRequest("GET", "/metrics", nil)
-
-		// Create a response recorder to capture the output
-		recorder := httptest.NewRecorder()
-
-		// Create the Prometheus HTTP handler
-		handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
-
-		// Serve the metrics to the recorder
-		handler.ServeHTTP(recorder, req)
-
-		// Write the response to Fiber context
-		return c.Send(recorder.Body.Bytes())
-	}
+	// Use adaptor to convert the standard net/http handler to a Fiber handler
+	// This is more efficient and cleaner than using httptest hacks
+	return adaptor.HTTPHandler(promHandler)
 }
 
 // PerformanceMonitor monitors application performance

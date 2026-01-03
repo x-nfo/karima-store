@@ -173,16 +173,20 @@ telemetry.RecordOperationPrometheus("custom_operation", duration, err)
 6. **Multi-dimensional**: Labels allow for flexible metric aggregation
 7. **Automatic Collection**: Go runtime metrics collected automatically
 
-## Backward Compatibility
+## Removed Code
 
-The old custom metrics functions are still available in [`internal/telemetry/metrics.go`](../internal/telemetry/metrics.go) for backward compatibility:
+The old custom metrics implementation in [`internal/telemetry/metrics.go`](../internal/telemetry/metrics.go) has been **removed** to avoid confusion and maintain a single, consistent metrics implementation using Prometheus.
 
-- `GetMetrics()`: Returns application metrics in JSON format
-- `GetEndpointMetrics()`: Returns metrics for specific endpoint
-- `GetAllEndpointMetrics()`: Returns all endpoint metrics
-- `ResetMetrics()`: Resets all metrics
+The following deprecated functions are no longer available:
+- `GetMetrics()`: Returns application metrics in JSON format (removed)
+- `GetEndpointMetrics()`: Returns metrics for specific endpoint (removed)
+- `GetAllEndpointMetrics()`: Returns all endpoint metrics (removed)
+- `ResetMetrics()`: Resets all metrics (removed)
+- `RecordMetrics()`: Records HTTP request metrics (removed)
+- `RecordOperation()`: Records operation metrics (removed)
+- `GetOperationMetrics()`: Returns metrics for specific operation (removed)
 
-However, these functions are deprecated and should be replaced with Prometheus metrics.
+All metrics are now handled exclusively through Prometheus.
 
 ## Testing
 
@@ -196,17 +200,20 @@ go test ./internal/telemetry/... -v
 
 ### For Developers
 
-If you're using custom metrics in your code:
+The old custom metrics implementation has been removed. All metrics are now handled through Prometheus:
 
-**Before:**
+**Current Usage (Automatic):**
 ```go
-telemetry.RecordMetrics(c, duration, err)
+// Middleware handles HTTP request metrics automatically
+app.Use(middleware.MetricsMiddleware())
+
+// Expose metrics endpoint
+app.Get("/metrics", middleware.MetricsHandler())
 ```
 
-**After:**
+**For Custom Operations:**
 ```go
-// No changes needed - middleware handles this automatically
-// For custom operations:
+// Record custom operation metrics
 telemetry.RecordOperationPrometheus("operation_name", duration, err)
 ```
 
@@ -215,7 +222,7 @@ telemetry.RecordOperationPrometheus("operation_name", duration, err)
 1. Update Prometheus configuration to scrape the `/metrics` endpoint
 2. Update Grafana dashboards to use new metric names
 3. Update alerting rules to use PromQL queries
-4. Remove old custom metrics endpoint if no longer needed
+4. Remove any references to old custom metrics endpoints
 
 ## Troubleshooting
 

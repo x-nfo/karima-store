@@ -80,6 +80,9 @@ func RegisterRoutes(app *fiber.App,
 		})
 	})
 
+	// Prometheus metrics endpoint (production-ready using adaptor pattern)
+	app.Get("/metrics", middleware.MetricsHandler())
+
 	// Documentation
 	app.Get("/swagger/*", swaggerHandler.ServeSwagger)
 
