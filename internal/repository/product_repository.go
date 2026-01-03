@@ -104,6 +104,20 @@ func (r *productRepository) Delete(id uint) error {
 }
 
 func (r *productRepository) UpdateStock(id uint, quantity int) error {
+	if quantity < 0 {
+		result := r.db.Model(&models.Product{}).
+			Where("id = ? AND stock >= ?", id, -quantity).
+			Update("stock", gorm.Expr("stock + ?", quantity))
+
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return fmt.Errorf("insufficient stock")
+		}
+		return nil
+	}
+
 	return r.db.Model(&models.Product{}).
 		Where("id = ?", id).
 		Update("stock", gorm.Expr("stock + ?", quantity)).Error
@@ -162,7 +176,7 @@ func (r *productRepository) GetByCategory(category models.ProductCategory, limit
 func (r *productRepository) GetFeatured(limit int) ([]models.Product, error) {
 	var products []models.Product
 	err := r.db.Preload("Media").
-		Where("status = ?", models.StatusAvailable).
+		Where("status = ? AND is_featured = ?", models.StatusAvailable, true).
 		Order("view_count DESC, sold_count DESC").
 		Limit(limit).
 		Find(&products).Error

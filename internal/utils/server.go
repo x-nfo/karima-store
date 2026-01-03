@@ -21,7 +21,7 @@ func startServerWithGracefulShutdown(
 	port string,
 	cfg *config.Config,
 	db *database.PostgreSQL,
-	redis *database.Redis,
+	redis database.RedisClient,
 ) {
 	// Create a channel to listen for interrupt signals
 	quit := make(chan os.Signal, 1)
@@ -84,7 +84,7 @@ func StartServerWithGracefulShutdown(
 	port string,
 	cfg *config.Config,
 	db *database.PostgreSQL,
-	redis *database.Redis,
+	redis database.RedisClient,
 ) {
 	startServerWithGracefulShutdown(app, port, cfg, db, redis)
 }

@@ -13,14 +13,14 @@ import (
 )
 
 type PricingHandler struct {
-	pricingService *services.PricingService
-	redisClient *database.Redis
+	pricingService services.PricingService
+	redisClient    database.RedisClient
 }
 
-func NewPricingHandler(pricingService *services.PricingService, redis *database.Redis) *PricingHandler {
+func NewPricingHandler(pricingService services.PricingService, redis database.RedisClient) *PricingHandler {
 	return &PricingHandler{
 		pricingService: pricingService,
-		redisClient: redis,
+		redisClient:    redis,
 	}
 }
 
@@ -304,11 +304,11 @@ func (h *PricingHandler) CalculateOrderSummary(c *fiber.Ctx) error {
 
 // OrderSummaryRequest represents the request body for order summary calculation
 type OrderSummaryRequest struct {
-	Items        []services.PriceCalculationRequest `json:"items"`
+	Items        []services.PriceCalculationRequest  `json:"items"`
 	Shipping     services.ShippingCalculationRequest `json:"shipping"`
 	CustomerType services.CustomerType               `json:"customer_type"`
-	CouponCode    string                           `json:"coupon_code,omitempty"`
-	UserID       uint                             `json:"user_id,omitempty"`
+	CouponCode   string                              `json:"coupon_code,omitempty"`
+	UserID       uint                                `json:"user_id,omitempty"`
 }
 
 // ValidateCoupon validates a coupon code
@@ -335,10 +335,10 @@ func (h *PricingHandler) ValidateCoupon(c *fiber.Ctx) error {
 	}
 
 	couponReq := services.CouponCalculationRequest{
-		Code:          req.Code,
-		UserID:        req.UserID,
+		Code:           req.Code,
+		UserID:         req.UserID,
 		PurchaseAmount: req.PurchaseAmount,
-		CustomerType:  req.CustomerType,
+		CustomerType:   req.CustomerType,
 	}
 
 	discount, couponName, err := h.pricingService.CalculateCouponDiscount(couponReq)
@@ -353,7 +353,7 @@ func (h *PricingHandler) ValidateCoupon(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"status": "success",
 		"data": fiber.Map{
-			"valid":          true,
+			"valid":           true,
 			"coupon_name":     couponName,
 			"discount_amount": discount,
 		},
@@ -362,10 +362,10 @@ func (h *PricingHandler) ValidateCoupon(c *fiber.Ctx) error {
 
 // CouponValidationRequest represents the request body for coupon validation
 type CouponValidationRequest struct {
-	Code           string                 `json:"code"`
-	UserID         uint                   `json:"user_id"`
-	PurchaseAmount float64                `json:"purchase_amount"`
-	CustomerType  services.CustomerType    `json:"customer_type"`
+	Code           string                `json:"code"`
+	UserID         uint                  `json:"user_id"`
+	PurchaseAmount float64               `json:"purchase_amount"`
+	CustomerType   services.CustomerType `json:"customer_type"`
 }
 
 // GetPricingInfo returns pricing information for a product

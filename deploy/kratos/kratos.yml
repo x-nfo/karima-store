@@ -1,15 +1,16 @@
 version: v0.10.1
 
-dsn: ${KRATOS_DSN}
+dsn: postgres://postgres:secret@karima_postgres:5432/kratos?sslmode=disable&max_conns=20&max_idle_conns=4
 
 serve:
   public:
-    base_url: ${KRATOS_PUBLIC_BASE_URL}
+    base_url: http://127.0.0.1:4433/
     cors:
       enabled: true
       allowed_origins:
-        - https://karima.com
-        - https://admin.ks-backend.cloud
+        - http://127.0.0.1:4455
+        - http://localhost:3000
+        - http://127.0.0.1:3000
       allowed_methods:
         - POST
         - GET
@@ -20,18 +21,19 @@ serve:
         - Authorization
         - Cookie
         - Content-Type
+        - X-Session-Token
       exposed_headers:
         - Content-Type
         - Set-Cookie
   admin:
-    base_url: ${KRATOS_ADMIN_BASE_URL}
+    base_url: http://127.0.0.1:4434/
 
 selfservice:
-  default_browser_return_url: ${KRATOS_DEFAULT_RETURN_URL}
+  default_browser_return_url: http://127.0.0.1:4455/
   allowed_return_urls:
-    - ${KRATOS_DEFAULT_RETURN_URL}
-    - https://karima.com/
-    - https://admin.ks-backend.cloud/
+    - http://127.0.0.1:4455/
+    - http://localhost:3000/
+    - http://127.0.0.1:3000/
 
   methods:
     password:
@@ -41,76 +43,64 @@ selfservice:
 
   flows:
     error:
-      ui_url: ${KRATOS_UI_URL}/error
+      ui_url: http://127.0.0.1:4455/error
 
     settings:
-      ui_url: ${KRATOS_UI_URL}/settings
+      ui_url: http://127.0.0.1:4455/settings
       privileged_session_max_age: 15m
       after:
-        default_browser_return_url: ${KRATOS_DEFAULT_RETURN_URL}
+        default_browser_return_url: http://127.0.0.1:4455/
 
     recovery:
       enabled: true
-      ui_url: ${KRATOS_UI_URL}/recovery
+      ui_url: http://127.0.0.1:4455/recovery
       after:
-        default_browser_return_url: ${KRATOS_DEFAULT_RETURN_URL}
+        default_browser_return_url: http://127.0.0.1:4455/
 
     verification:
       enabled: true
-      ui_url: ${KRATOS_UI_URL}/verification
+      ui_url: http://127.0.0.1:4455/verification
       after:
-        default_browser_return_url: ${KRATOS_DEFAULT_RETURN_URL}
+        default_browser_return_url: http://127.0.0.1:4455/
 
     logout:
       after:
-        default_browser_return_url: ${KRATOS_UI_URL}/login
+        default_browser_return_url: http://127.0.0.1:4455/login
 
     login:
-      ui_url: ${KRATOS_UI_URL}/login
+      ui_url: http://127.0.0.1:4455/login
       lifespan: 10m
       after:
-        default_browser_return_url: ${KRATOS_DEFAULT_RETURN_URL}
+        default_browser_return_url: http://127.0.0.1:4455/
 
     registration:
       lifespan: 10m
-      ui_url: ${KRATOS_UI_URL}/registration
+      ui_url: http://127.0.0.1:4455/registration
       after:
         password:
           hooks:
             - hook: session
-        default_browser_return_url: ${KRATOS_DEFAULT_RETURN_URL}
+        default_browser_return_url: http://127.0.0.1:4455/
 
-  # Cookie security configuration for production
-  cookies:
-    domain: ${KRATOS_COOKIE_DOMAIN:-}
+# Session configuration
+session:
+  lifespan: 24h
+  cookie:
+    domain: 127.0.0.1
     path: /
-    same_site: ${KRATOS_COOKIE_SAME_SITE:-Lax}
-    # secure: true ensures cookies are only sent over HTTPS
-    secure: ${KRATOS_COOKIE_SECURE:-true}
-    # httpOnly: true prevents JavaScript access to cookies
-    http_only: ${KRATOS_COOKIE_HTTP_ONLY:-true}
-
-  # Session configuration
-  session:
-    lifespan: ${KRATOS_SESSION_LIFESPAN:-24h}
-    cookie:
-      domain: ${KRATOS_COOKIE_DOMAIN:-}
-      path: /
-      same_site: ${KRATOS_COOKIE_SAME_SITE:-Lax}
-      secure: ${KRATOS_COOKIE_SECURE:-true}
-      http_only: ${KRATOS_COOKIE_HTTP_ONLY:-true}
-      name: ${KRATOS_SESSION_COOKIE_NAME:-ory_kratos_session}
+    same_site: Lax
+    name: ory_kratos_session
 
 log:
-  level: ${KRATOS_LOG_LEVEL:-info}
-  format: ${KRATOS_LOG_FORMAT:-json}
-  leak_sensitive_values: ${KRATOS_LEAK_SENSITIVE_VALUES:-false}
+  level: debug
+  format: text
+  leak_sensitive_values: true
 
 secrets:
   cookie:
-    - ${KRATOS_SECRET_COOKIE}
+    - dev-cookie-secret-that-is-at-least-32-characters-long-1234
   cipher:
-    - ${KRATOS_SECRET_CIPHER}
+    - dev-cipher-secret-exact-32-chars
 
 identity:
   default_schema_id: default
@@ -120,11 +110,8 @@ identity:
 
 courier:
   smtp:
-    connection_uri: ${KRATOS_SMTP_CONNECTION_URI}
+    connection_uri: smtp://test:test@mailslurper:2500/?skip_ssl_verify=true
 
-# Feature flags for security enhancements
+# Feature flags
 feature_flags:
-  use_continue_with_transitions: ${KRATOS_USE_CONTINUE_WITH:-false}
-  aal:
-    aa1_enabled: ${KRATOS_AAL_AA1_ENABLED:-true}
-    aa2_enabled: ${KRATOS_AAL_AA2_ENABLED:-false}
+  use_continue_with_transitions: false

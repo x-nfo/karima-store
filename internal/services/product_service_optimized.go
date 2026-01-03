@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	apperrors "github.com/karima-store/internal/errors"
 	"github.com/karima-store/internal/database"
+	apperrors "github.com/karima-store/internal/errors"
+	"github.com/karima-store/internal/middleware"
 	"github.com/karima-store/internal/models"
 	"github.com/karima-store/internal/repository"
-	"github.com/karima-store/internal/middleware"
 
 	"gorm.io/gorm"
 )
@@ -22,12 +22,12 @@ import (
 type OptimizedProductService struct {
 	productRepo repository.ProductRepository
 	variantRepo repository.VariantRepository
-	redis       *database.Redis
+	redis       database.RedisClient
 	wg          sync.WaitGroup
 }
 
 // NewOptimizedProductService creates a new optimized product service
-func NewOptimizedProductService(productRepo repository.ProductRepository, variantRepo repository.VariantRepository, redis *database.Redis) *OptimizedProductService {
+func NewOptimizedProductService(productRepo repository.ProductRepository, variantRepo repository.VariantRepository, redis database.RedisClient) *OptimizedProductService {
 	return &OptimizedProductService{
 		productRepo: productRepo,
 		variantRepo: variantRepo,
@@ -172,8 +172,8 @@ func (s *OptimizedProductService) GetProducts(limit, offset int, filters map[str
 		return cachedResult.Products, cachedResult.Total, nil
 	}
 
-	// Optimized query with preloading
-	products, total, err := s.productRepo.GetAllWithPreload(limit, offset, filters)
+	// Optimized query with preloading (GetAll already includes Preload for Media and Variants)
+	products, total, err := s.productRepo.GetAll(limit, offset, filters)
 	if err != nil {
 		return nil, 0, apperrors.WrapError(apperrors.ErrCodeDatabase, "Failed to get products", err)
 	}
@@ -202,9 +202,16 @@ func (s *OptimizedProductService) GetProductsWithVariants(productIDs []uint) (ma
 	}
 
 	// Batch fetch products with variants
-	products, err := s.productRepo.GetBatchWithVariants(productIDs)
-	if err != nil {
-		return nil, apperrors.WrapError(apperrors.ErrCodeDatabase, "Failed to get products batch", err)
+	// Note: Using individual GetByID calls for now as GetBatchWithVariants is not available
+	// This can be optimized later by adding a batch method to the repository
+	products := make([]models.Product, 0, len(productIDs))
+	for _, id := range productIDs {
+		product, err := s.productRepo.GetByID(id)
+		if err != nil {
+			// Skip products that don't exist, don't fail the entire batch
+			continue
+		}
+		products = append(products, *product)
 	}
 
 	// Convert to map

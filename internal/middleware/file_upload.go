@@ -7,8 +7,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"image"
-	"image/jpeg"
-	"image/png"
 	"io"
 	"github.com/karima-store/internal/errors"
 	"mime/multipart"
@@ -116,22 +114,14 @@ func (s *ClamAVScanner) scanWithClamAV(ctx context.Context, content []byte) erro
 	client := clamd.NewClamd(s.endpoint)
 
 	// Create a channel to receive scan results
-	resultChan := client.ScanStream(ctx, bytes.NewReader(content), nil)
+	resultChan := make(chan bool)
+	go client.ScanStream(bytes.NewReader(content), resultChan)
 
 	// Wait for scan result with timeout
 	select {
 	case result := <-resultChan:
-		if result == nil {
-			return fmt.Errorf("clamAV scan returned no result")
-		}
-
-		// Check scan status
-		if result.Status == clamd.RES_FOUND {
-			return fmt.Errorf("malware detected: %s", result.Description)
-		} else if result.Status == clamd.RES_ERROR {
-			return fmt.Errorf("clamAV scan error: %s", result.Description)
-		} else if result.Status == clamd.RES_PARSE_ERROR {
-			return fmt.Errorf("clamAV parse error: %s", result.Description)
+		if result == false {
+			return fmt.Errorf("clamAV scan detected malware")
 		}
 		// RES_OK means file is clean
 		return nil
@@ -476,7 +466,7 @@ func validateImageDimensions(reader io.Reader, config SecureFileUploadConfig) er
 	}
 
 	// Decode image to get dimensions
-	img, format, err := image.DecodeConfig(reader)
+	img, _, err := image.DecodeConfig(reader)
 	if err != nil {
 		return errors.NewInvalidInputError("Failed to decode image")
 	}
@@ -549,7 +539,7 @@ func scanForMalware(fileHeader *multipart.FileHeader, scanner MalwareScanner, fa
 			return nil
 		}
 		// Fail-closed: Block the file upload
-		return errors.NewInternalErrorWithDetails(
+		return errors.NewValidationErrorWithDetails(
 			"Malware scan failed - upload blocked (fail-closed mode)",
 			map[string]interface{}{
 				"error": err.Error(),

@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,29 +13,63 @@ import (
 	"github.com/gofiber/storage/redis/v3"
 	"github.com/karima-store/internal/config"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-// MockHTTPClient for testing
-type MockHTTPClient struct {
-	mock.Mock
-}
+// Helper to create mock Kratos server
+func mockKratosServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/sessions/whoami" {
+			// Check cookie or header
+			cookie, err := r.Cookie("ory_kratos_session")
+			token := r.Header.Get("X-Session-Token")
 
-func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
-	args := m.Called(req)
-	return args.Get(0).(*http.Response), args.Error(1)
+			if (err == nil && cookie.Value == "valid-session-token") || token == "valid-session-token" {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{
+					"id": "test-session-id",
+					"active": true,
+					"identity": {
+						"id": "test-identity-id",
+						"traits": {
+							"email": "test@example.com",
+							"role": "user"
+						}
+					}
+				}`))
+				return
+			}
+			if err == nil && cookie.Value == "valid-session-token-without-role" {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{
+					"id": "test-session-id",
+					"active": true,
+					"identity": {
+						"id": "test-identity-id",
+						"traits": {
+							"email": "test@example.com"
+						}
+					}
+				}`))
+				return
+			}
+
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
 }
 
 func TestKratosMiddleware_Authenticate(t *testing.T) {
+	// Setup mock Kratos server
+	ts := mockKratosServer()
+	defer ts.Close()
+
 	// Setup test app
 	app := fiber.New()
-	cfg := &config.Config{
-		KratosPublicURL: "http://kratos-public",
-		KratosAdminURL:  "http://kratos-admin",
-	}
 
-	// Create middleware
-	kratosMiddleware := NewKratosMiddleware(cfg.KratosPublicURL, cfg.KratosAdminURL)
+	// Create middleware with mock server URL
+	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL)
 
 	// Test route with authentication
 	app.Get("/protected", kratosMiddleware.Authenticate(), func(c *fiber.Ctx) error {
@@ -56,27 +92,31 @@ func TestKratosMiddleware_Authenticate(t *testing.T) {
 	assert.NoError(t, err2)
 	assert.Equal(t, fiber.StatusUnauthorized, resp2.StatusCode)
 
-	// Test case 3: Expired session
-	// This would require mocking the HTTP client to return 401
-	// For simplicity, we'll test the basic flow
+	// Test case 3: Valid session cookie
+	req3 := httptest.NewRequest("GET", "/protected", nil)
+	req3.AddCookie(&http.Cookie{
+		Name:  "ory_kratos_session",
+		Value: "valid-session-token",
+	})
+	resp3, err3 := app.Test(req3)
+	assert.NoError(t, err3)
+	assert.Equal(t, fiber.StatusOK, resp3.StatusCode)
 }
 
 func TestKratosMiddleware_RequireRole(t *testing.T) {
-	app := fiber.New()
-	cfg := &config.Config{
-		KratosPublicURL: "http://kratos-public",
-		KratosAdminURL:  "http://kratos-admin",
-	}
+	ts := mockKratosServer()
+	defer ts.Close()
 
-	kratosMiddleware := NewKratosMiddleware(cfg.KratosPublicURL, cfg.KratosAdminURL)
+	app := fiber.New()
+	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL)
 
 	// Test route requiring admin role
-	app.Get("/admin", kratosMiddleware.RequireRole("admin"), func(c *fiber.Ctx) error {
+	app.Get("/admin", kratosMiddleware.Authenticate(), kratosMiddleware.RequireRole("admin"), func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
 	// Test route requiring user role
-	app.Get("/user", kratosMiddleware.RequireRole("user"), func(c *fiber.Ctx) error {
+	app.Get("/user", kratosMiddleware.Authenticate(), kratosMiddleware.RequireRole("user"), func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
@@ -87,6 +127,7 @@ func TestKratosMiddleware_RequireRole(t *testing.T) {
 	assert.Equal(t, fiber.StatusUnauthorized, resp1.StatusCode)
 
 	// Test case 2: User role accessing admin route
+	// The mock server returns "role": "user" for "valid-session-token"
 	req2 := httptest.NewRequest("GET", "/admin", nil)
 	req2.AddCookie(&http.Cookie{
 		Name:  "ory_kratos_session",
@@ -94,20 +135,34 @@ func TestKratosMiddleware_RequireRole(t *testing.T) {
 	})
 	resp2, err2 := app.Test(req2)
 	assert.NoError(t, err2)
+	if resp2.StatusCode != fiber.StatusForbidden {
+		body, _ := io.ReadAll(resp2.Body)
+		fmt.Printf("Test case 2 failed. Status: %d, Body: %s\n", resp2.StatusCode, string(body))
+	}
+	// User is authenticated (mock returns user role), but route requires admin
 	assert.Equal(t, fiber.StatusForbidden, resp2.StatusCode)
 
-	// Test case 3: Admin role accessing admin route
-	// This would require mocking the session validation
+	// Test case 3: User role accessing user route
+	req3 := httptest.NewRequest("GET", "/user", nil)
+	req3.AddCookie(&http.Cookie{
+		Name:  "ory_kratos_session",
+		Value: "valid-session-token",
+	})
+	resp3, err3 := app.Test(req3)
+	assert.NoError(t, err3)
+	if resp3.StatusCode != fiber.StatusOK {
+		body, _ := io.ReadAll(resp3.Body)
+		fmt.Printf("Test case 3 failed. Status: %d, Body: %s\n", resp3.StatusCode, string(body))
+	}
+	assert.Equal(t, fiber.StatusOK, resp3.StatusCode)
 }
 
 func TestKratosMiddleware_ValidateToken(t *testing.T) {
-	app := fiber.New()
-	cfg := &config.Config{
-		KratosPublicURL: "http://kratos-public",
-		KratosAdminURL:  "http://kratos-admin",
-	}
+	ts := mockKratosServer()
+	defer ts.Close()
 
-	kratosMiddleware := NewKratosMiddleware(cfg.KratosPublicURL, cfg.KratosAdminURL)
+	app := fiber.New()
+	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL)
 
 	// Test route with token authentication
 	app.Get("/api", kratosMiddleware.ValidateToken(), func(c *fiber.Ctx) error {
@@ -132,18 +187,15 @@ func TestKratosMiddleware_ValidateToken(t *testing.T) {
 	req3.Header.Set("Authorization", "Bearer valid-session-token")
 	resp3, err3 := app.Test(req3)
 	assert.NoError(t, err3)
-	// This would require mocking the session validation
 	assert.Equal(t, fiber.StatusOK, resp3.StatusCode)
 }
 
 func TestKratosMiddleware_OptionalAuth(t *testing.T) {
-	app := fiber.New()
-	cfg := &config.Config{
-		KratosPublicURL: "http://kratos-public",
-		KratosAdminURL:  "http://kratos-admin",
-	}
+	ts := mockKratosServer()
+	defer ts.Close()
 
-	kratosMiddleware := NewKratosMiddleware(cfg.KratosPublicURL, cfg.KratosAdminURL)
+	app := fiber.New()
+	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL)
 
 	// Test route with optional authentication
 	app.Get("/optional", kratosMiddleware.OptionalAuth(), func(c *fiber.Ctx) error {
@@ -178,13 +230,11 @@ func TestKratosMiddleware_OptionalAuth(t *testing.T) {
 }
 
 func TestKratosMiddleware_SessionData(t *testing.T) {
-	app := fiber.New()
-	cfg := &config.Config{
-		KratosPublicURL: "http://kratos-public",
-		KratosAdminURL:  "http://kratos-admin",
-	}
+	ts := mockKratosServer()
+	defer ts.Close()
 
-	kratosMiddleware := NewKratosMiddleware(cfg.KratosPublicURL, cfg.KratosAdminURL)
+	app := fiber.New()
+	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL)
 
 	// Test route that checks session data
 	app.Get("/session-data", kratosMiddleware.Authenticate(), func(c *fiber.Ctx) error {
@@ -215,13 +265,11 @@ func TestKratosMiddleware_SessionData(t *testing.T) {
 }
 
 func TestKratosMiddleware_RoleDefaults(t *testing.T) {
-	app := fiber.New()
-	cfg := &config.Config{
-		KratosPublicURL: "http://kratos-public",
-		KratosAdminURL:  "http://kratos-admin",
-	}
+	ts := mockKratosServer()
+	defer ts.Close()
 
-	kratosMiddleware := NewKratosMiddleware(cfg.KratosPublicURL, cfg.KratosAdminURL)
+	app := fiber.New()
+	kratosMiddleware := NewKratosMiddleware(ts.URL, ts.URL)
 
 	// Test route that checks role defaults
 	app.Get("/role-default", kratosMiddleware.Authenticate(), func(c *fiber.Ctx) error {
@@ -242,13 +290,16 @@ func TestKratosMiddleware_RoleDefaults(t *testing.T) {
 }
 
 func TestKratosMiddleware_RateLimitIntegration(t *testing.T) {
+	ts := mockKratosServer()
+	defer ts.Close()
+
 	app := fiber.New()
 	cfg := &config.Config{
-		KratosPublicURL: "http://kratos-public",
-		KratosAdminURL:  "http://kratos-admin",
-		AppEnv:         "development",
-		RedisHost:      "localhost",
-		RedisPort:      "6379",
+		KratosPublicURL: ts.URL,
+		KratosAdminURL:  ts.URL,
+		AppEnv:          "development",
+		RedisHost:       "localhost",
+		RedisPort:       "6379",
 	}
 
 	// Create rate limiter
@@ -272,8 +323,15 @@ func TestKratosMiddleware_RateLimitIntegration(t *testing.T) {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
+	// Generate unique IP
+	// math/rand is not imported, so we just use a fixed unique one or rely on imported rand if available.
+	// Imports check: "math/rand" is NOT imported. "fmt" is imported.
+	// We can use time.Now() to generate something somewhat unique or just a hardcoded unique IP different from others.
+	uniqueIP := fmt.Sprintf("192.168.200.%d:1234", time.Now().Nanosecond()%255)
+
 	// Test case 1: First request (should succeed)
 	req1 := httptest.NewRequest("GET", "/protected/rate-limited", nil)
+	req1.RemoteAddr = uniqueIP
 	req1.AddCookie(&http.Cookie{
 		Name:  "ory_kratos_session",
 		Value: "valid-session-token",
@@ -284,6 +342,7 @@ func TestKratosMiddleware_RateLimitIntegration(t *testing.T) {
 
 	// Test case 2: Second request (should succeed)
 	req2 := httptest.NewRequest("GET", "/protected/rate-limited", nil)
+	req2.RemoteAddr = uniqueIP
 	req2.AddCookie(&http.Cookie{
 		Name:  "ory_kratos_session",
 		Value: "valid-session-token",
@@ -294,6 +353,7 @@ func TestKratosMiddleware_RateLimitIntegration(t *testing.T) {
 
 	// Test case 3: Third request (should be rate limited)
 	req3 := httptest.NewRequest("GET", "/protected/rate-limited", nil)
+	req3.RemoteAddr = uniqueIP
 	req3.AddCookie(&http.Cookie{
 		Name:  "ory_kratos_session",
 		Value: "valid-session-token",

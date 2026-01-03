@@ -53,6 +53,7 @@ func (m *KratosAuthProvider) Authenticate() fiber.Handler {
 		// Validate session with Kratos
 		session, err := m.validateSession(sessionCookie)
 		if err != nil {
+			fmt.Printf("Session validation failed: %v\n", err)
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Invalid or expired session",
 				"code":  "UNAUTHORIZED",

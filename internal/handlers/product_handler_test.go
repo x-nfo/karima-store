@@ -3,12 +3,10 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http/httptest"
 	"testing"
 
 	apperrors "github.com/karima-store/internal/errors"
-	"github.com/karima-store/internal/models"
 	"github.com/karima-store/internal/repository"
 	"github.com/karima-store/internal/services"
 	"github.com/karima-store/internal/test_setup"
@@ -27,24 +25,40 @@ func setupProductHandlerTest(t *testing.T) (*fiber.App, func()) {
 
 	// Setup test Redis
 	redisClient := test_setup.SetupTestRedis(t)
+	if redisClient == nil {
+		t.Skip("Redis not available, skipping test")
+	}
 
 	// Create repositories
 	productRepo := repository.NewProductRepository(db)
 	variantRepo := repository.NewVariantRepository(db)
+	mediaRepo := repository.NewMediaRepository(db)
 
-	// Create service
+	// Create services
 	productService := services.NewProductService(productRepo, variantRepo, redisClient)
 
+	// Get config for media service
+	cfg := test_setup.GetTestConfig()
+	mediaService := services.NewMediaService(mediaRepo, productRepo, cfg)
+
 	// Create handler
-	productHandler := NewProductHandler(productService)
+	productHandler := NewProductHandler(productService, mediaService)
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			if appErr := apperrors.GetAppError(err); appErr != nil {
+
 				return c.Status(appErr.StatusCode).JSON(fiber.Map{
 					"code":    string(appErr.Code),
 					"message": appErr.Message,
+				})
+			}
+			// Handle Fiber errors
+			if e, ok := err.(*fiber.Error); ok {
+				return c.Status(e.Code).JSON(fiber.Map{
+					"code":    "FIBER_ERROR",
+					"message": e.Message,
 				})
 			}
 			return c.Status(500).JSON(fiber.Map{
@@ -56,14 +70,20 @@ func setupProductHandlerTest(t *testing.T) (*fiber.App, func()) {
 
 	// Setup routes
 	app.Get("/products", productHandler.GetProducts)
-	app.Get("/products/:id", productHandler.GetProduct)
+	app.Get("/products/search", productHandler.SearchProducts)
+	app.Get("/products/featured", productHandler.GetFeaturedProducts)
+	app.Get("/products/bestsellers", productHandler.GetBestSellers)
+	app.Get("/products/category/:category", productHandler.GetProductsByCategory)
+	app.Get("/products/:id", productHandler.GetProductByID)
 	app.Post("/products", productHandler.CreateProduct)
 	app.Put("/products/:id", productHandler.UpdateProduct)
 	app.Delete("/products/:id", productHandler.DeleteProduct)
 
 	cleanup := func() {
 		cleanupDB()
-		redisClient.Close()
+		if redisClient != nil {
+			redisClient.Close()
+		}
 	}
 
 	return app, cleanup
@@ -74,18 +94,8 @@ func TestProductHandler_GetProducts(t *testing.T) {
 	defer cleanup()
 
 	// Create test products
-	for i := 1; i <= 5; i++ {
-		product := &models.Product{
-			Name:        fmt.Sprintf("Test Product %d", i),
-			Description: "Test Description",
-			Price:       float64(i * 100),
-			Category:    models.CategoryTops,
-			Stock:       10,
-			Status:      models.StatusAvailable,
-			Slug:        fmt.Sprintf("test-product-%d", i),
-		}
-		// Note: In a real test, you would use the repository to create products
-	}
+	// Note: In a real test, you would use the repository to create products
+	// For now, we're just testing the endpoint response
 
 	// Test GET /products
 	req := httptest.NewRequest("GET", "/products", nil)
@@ -184,8 +194,11 @@ func TestProductHandler_UpdateProduct(t *testing.T) {
 
 	// Test data
 	updateProduct := map[string]interface{}{
-		"name":  "Updated Product",
-		"price": 150.00,
+		"name":     "Updated Product",
+		"price":    150.00,
+		"category": "tops", // Required field
+		"sku":      "updated-sku-123",
+		"weight":   1.0,
 	}
 
 	body, _ := json.Marshal(updateProduct)
@@ -216,8 +229,8 @@ func TestProductHandler_SearchProducts(t *testing.T) {
 	app, cleanup := setupProductHandlerTest(t)
 	defer cleanup()
 
-	// Test GET /products/search?query=test
-	req := httptest.NewRequest("GET", "/products/search?query=test", nil)
+	// Test GET /products/search?q=test
+	req := httptest.NewRequest("GET", "/products/search?q=test", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
 

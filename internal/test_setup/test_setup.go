@@ -1,13 +1,13 @@
 package test_setup
 
 import (
-	"context"
 	"log"
 	"os"
 	"testing"
 
 	"github.com/karima-store/internal/config"
-	"github.com/redis/go-redis/v9"
+	"github.com/karima-store/internal/database"
+	"github.com/karima-store/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -76,8 +76,8 @@ func setupTestDatabase() {
 	}
 
 	// Run migrations for test database
-	err = TestDB.AutoMigrate()
-	if err != nil {
+	// Run migrations for test database
+	if err := RunMigrations(TestDB); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
@@ -140,6 +140,11 @@ func GetTestConfig() *config.Config {
 
 // SetupTestDB sets up a test database for individual tests
 func SetupTestDB(t *testing.T) (*gorm.DB, func()) {
+	// Initialize test config if not already done
+	if TestCfg == nil {
+		TestCfg = config.TestConfig()
+	}
+
 	// Create a new database connection for this test
 	dsn := buildTestDSN()
 
@@ -148,6 +153,11 @@ func SetupTestDB(t *testing.T) (*gorm.DB, func()) {
 	})
 	if err != nil {
 		t.Fatalf("Failed to connect to test database: %v", err)
+	}
+
+	// Run migrations for this connection to ensure schema exists
+	if err := RunMigrations(db); err != nil {
+		t.Fatalf("Failed to run migrations: %v", err)
 	}
 
 	// Clean up function
@@ -162,19 +172,40 @@ func SetupTestDB(t *testing.T) (*gorm.DB, func()) {
 }
 
 // SetupTestRedis sets up a test Redis client for individual tests
-func SetupTestRedis(t *testing.T) *redis.Client {
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       1, // Use DB 1 for tests
-	})
+func SetupTestRedis(t *testing.T) database.RedisClient {
+	// Use test config to create Redis instance
+	// Use test config to create Redis instance
+	testCfg := config.TestConfigWithRedis()
 
-	// Test connection
-	ctx := context.Background()
-	_, err := client.Ping(ctx).Result()
+	// Create Redis instance
+	redisInstance, err := database.NewRedis(testCfg)
 	if err != nil {
 		t.Logf("Warning: Redis not available for testing: %v", err)
+		// Return a mock or nil - for now we'll return nil and handle in tests
+		// In production tests, you'd want to skip tests that require Redis
+		return nil
 	}
 
-	return client
+	return redisInstance
+}
+
+// RunMigrations runs database migrations
+func RunMigrations(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&models.User{},
+		&models.Product{},
+		&models.ProductVariant{},
+		&models.Media{},
+		&models.Order{},
+		&models.OrderItem{},
+		&models.Cart{},
+		&models.CartItem{},
+		&models.Review{},
+		&models.Wishlist{},
+		&models.Coupon{},
+		&models.FlashSale{},
+		&models.ShippingZone{},
+		&models.Tax{},
+		&models.StockLog{},
+	)
 }

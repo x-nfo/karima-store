@@ -8,10 +8,10 @@ import (
 )
 
 type CheckoutHandler struct {
-	checkoutService *services.CheckoutService
+	checkoutService services.CheckoutService
 }
 
-func NewCheckoutHandler(checkoutService *services.CheckoutService) *CheckoutHandler {
+func NewCheckoutHandler(checkoutService services.CheckoutService) *CheckoutHandler {
 	return &CheckoutHandler{
 		checkoutService: checkoutService,
 	}

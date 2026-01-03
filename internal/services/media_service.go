@@ -18,7 +18,17 @@ import (
 	"github.com/karima-store/internal/storage"
 )
 
-type MediaService struct {
+// MediaService handles media file operations
+type MediaService interface {
+	UploadImage(fileHeader *multipart.FileHeader, productID uint, position int, isPrimary bool) (*UploadResponse, error)
+	DeleteMedia(mediaID uint) error
+	UpdateMedia(media *models.Media) error
+	GetMediaByProduct(productID uint) ([]models.Media, error)
+	SetPrimaryMedia(mediaID, productID uint) error
+	ValidateImageFile(fileHeader *multipart.FileHeader) error
+}
+
+type mediaService struct {
 	mediaRepo   repository.MediaRepository
 	productRepo repository.ProductRepository
 	cfg         *config.Config
@@ -38,8 +48,8 @@ func NewMediaService(
 	mediaRepo repository.MediaRepository,
 	productRepo repository.ProductRepository,
 	cfg *config.Config,
-) *MediaService {
-	service := &MediaService{
+) MediaService {
+	service := &mediaService{
 		mediaRepo:   mediaRepo,
 		productRepo: productRepo,
 		cfg:         cfg,
@@ -68,16 +78,10 @@ func NewMediaService(
 
 // UploadImage uploads an image file and creates a media record
 // Supports both local storage and Cloudflare R2
-func (s *MediaService) UploadImage(fileHeader *multipart.FileHeader, productID uint, position int, isPrimary bool) (*UploadResponse, error) {
+func (s *mediaService) UploadImage(fileHeader *multipart.FileHeader, productID uint, position int, isPrimary bool) (*UploadResponse, error) {
 	// Validate file
-	if fileHeader == nil {
-		return nil, errors.New("no file provided")
-	}
-
-	// Check file size (max 10MB)
-	const maxFileSize = 10 * 1024 * 1024
-	if fileHeader.Size > maxFileSize {
-		return nil, errors.New("file size exceeds 10MB limit")
+	if err := s.ValidateImageFile(fileHeader); err != nil {
+		return nil, err
 	}
 
 	// Open file
@@ -94,10 +98,7 @@ func (s *MediaService) UploadImage(fileHeader *multipart.FileHeader, productID u
 	}
 
 	// Get file extension
-	ext := filepath.Ext(fileHeader.Filename)
-	if ext == "" {
-		return nil, errors.New("invalid file extension")
-	}
+	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
 
 	// Generate unique filename
 	uniqueFilename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
@@ -182,7 +183,7 @@ func (s *MediaService) UploadImage(fileHeader *multipart.FileHeader, productID u
 }
 
 // DeleteMedia deletes a media record and its file
-func (s *MediaService) DeleteMedia(mediaID uint) error {
+func (s *mediaService) DeleteMedia(mediaID uint) error {
 	// Get media record
 	media, err := s.mediaRepo.GetByID(mediaID)
 	if err != nil {
@@ -207,17 +208,17 @@ func (s *MediaService) DeleteMedia(mediaID uint) error {
 }
 
 // UpdateMedia updates media information
-func (s *MediaService) UpdateMedia(media *models.Media) error {
+func (s *mediaService) UpdateMedia(media *models.Media) error {
 	return s.mediaRepo.Update(media)
 }
 
 // GetMediaByProduct retrieves all media for a product
-func (s *MediaService) GetMediaByProduct(productID uint) ([]models.Media, error) {
+func (s *mediaService) GetMediaByProduct(productID uint) ([]models.Media, error) {
 	return s.mediaRepo.GetByProductID(productID)
 }
 
 // SetPrimaryMedia sets a media item as primary for a product
-func (s *MediaService) SetPrimaryMedia(mediaID, productID uint) error {
+func (s *mediaService) SetPrimaryMedia(mediaID, productID uint) error {
 	// Get media record
 	media, err := s.mediaRepo.GetByID(mediaID)
 	if err != nil {
@@ -239,16 +240,15 @@ func (s *MediaService) SetPrimaryMedia(mediaID, productID uint) error {
 }
 
 // ValidateImageFile validates an uploaded image file
-func (s *MediaService) ValidateImageFile(fileHeader *multipart.FileHeader) error {
+func (s *mediaService) ValidateImageFile(fileHeader *multipart.FileHeader) error {
 	if fileHeader == nil {
 		return errors.New("no file provided")
 	}
 
-	// 1. Check Size (Default 5MB limit hardcoded for security, or parse from config)
-	// Using hardcoded 5MB as safe default for profile/product images
-	const maxFileSize = 5 * 1024 * 1024
+	// 1. Check Size (10MB limit)
+	const maxFileSize = 10 * 1024 * 1024
 	if fileHeader.Size > maxFileSize {
-		return errors.New("file size exceeds 5MB limit")
+		return errors.New("file size exceeds 10MB limit")
 	}
 
 	// 2. Check Extension (Whitelist)

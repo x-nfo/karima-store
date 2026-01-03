@@ -14,14 +14,19 @@ import (
 )
 
 // CheckoutService handles checkout operations
-type CheckoutService struct {
+type CheckoutService interface {
+	Checkout(req *models.CheckoutRequest) (*models.CheckoutResponse, error)
+	ProcessPaymentNotification(notification *models.MidtransPaymentNotification) error
+}
+
+type checkoutService struct {
 	db                  *database.PostgreSQL
 	orderRepo           repository.OrderRepository
 	productRepo         repository.ProductRepository
 	variantRepo         repository.VariantRepository
 	stockLogRepo        repository.StockLogRepository
-	pricingService      *PricingService
-	notificationService *NotificationService
+	pricingService      PricingService
+	notificationService NotificationService
 	midtransConfig      *MidtransConfig
 }
 
@@ -41,11 +46,11 @@ func NewCheckoutService(
 	productRepo repository.ProductRepository,
 	variantRepo repository.VariantRepository,
 	stockLogRepo repository.StockLogRepository,
-	pricingService *PricingService,
-	notificationService *NotificationService,
+	pricingService PricingService,
+	notificationService NotificationService,
 	midtransConfig *MidtransConfig,
-) *CheckoutService {
-	return &CheckoutService{
+) CheckoutService {
+	return &checkoutService{
 		db:                  db,
 		orderRepo:           orderRepo,
 		productRepo:         productRepo,
@@ -58,7 +63,7 @@ func NewCheckoutService(
 }
 
 // Checkout creates an order and generates Midtrans Snap token
-func (s *CheckoutService) Checkout(req *models.CheckoutRequest) (*models.CheckoutResponse, error) {
+func (s *checkoutService) Checkout(req *models.CheckoutRequest) (*models.CheckoutResponse, error) {
 	// 1. Prepare Data & Calculate Prices (Read-Only)
 	var priceReqItems []PriceCalculationRequest
 	for _, item := range req.Items {
@@ -170,7 +175,7 @@ func (s *CheckoutService) Checkout(req *models.CheckoutRequest) (*models.Checkou
 }
 
 // verifySignature verifies Midtrans webhook signature
-func (s *CheckoutService) verifySignature(notification *models.MidtransPaymentNotification) bool {
+func (s *checkoutService) verifySignature(notification *models.MidtransPaymentNotification) bool {
 	// Signature format: SHA512(order_id + status_code + gross_amount + server_key)
 	data := fmt.Sprintf("%s%s%.2f%s",
 		notification.OrderID,
@@ -185,7 +190,7 @@ func (s *CheckoutService) verifySignature(notification *models.MidtransPaymentNo
 }
 
 // ProcessPaymentNotification processes Midtrans webhook notification
-func (s *CheckoutService) ProcessPaymentNotification(notification *models.MidtransPaymentNotification) error {
+func (s *checkoutService) ProcessPaymentNotification(notification *models.MidtransPaymentNotification) error {
 	// Verify signature
 	if !s.verifySignature(notification) {
 		return fmt.Errorf("invalid signature")
@@ -282,12 +287,12 @@ func (s *CheckoutService) ProcessPaymentNotification(notification *models.Midtra
 }
 
 // generateOrderNumber generates a unique order number
-func (s *CheckoutService) generateOrderNumber() string {
+func (s *checkoutService) generateOrderNumber() string {
 	return "ORD" + time.Now().Format("20060102150405")
 }
 
 // reduceStockWithTx reduces stock and logs changes
-func (s *CheckoutService) reduceStockWithTx(
+func (s *checkoutService) reduceStockWithTx(
 	productRepo repository.ProductRepository,
 	stockLogRepo repository.StockLogRepository,
 	order *models.Order,
@@ -333,7 +338,7 @@ func (s *CheckoutService) reduceStockWithTx(
 }
 
 // restoreStockWithTx restores stock and logs changes
-func (s *CheckoutService) restoreStockWithTx(
+func (s *checkoutService) restoreStockWithTx(
 	productRepo repository.ProductRepository,
 	stockLogRepo repository.StockLogRepository,
 	order *models.Order,
@@ -373,7 +378,7 @@ func (s *CheckoutService) restoreStockWithTx(
 }
 
 // createOrderItems creates order items from checkout items
-func (s *CheckoutService) createOrderItems(items []PriceCalculationRequest, orderSummary *OrderSummary) []models.OrderItem {
+func (s *checkoutService) createOrderItems(items []PriceCalculationRequest, orderSummary *OrderSummary) []models.OrderItem {
 	var orderItems []models.OrderItem
 	for _, item := range items {
 		orderItem := models.OrderItem{
@@ -388,7 +393,7 @@ func (s *CheckoutService) createOrderItems(items []PriceCalculationRequest, orde
 }
 
 // generateSnapToken generates Midtrans Snap token (Stubbed)
-func (s *CheckoutService) generateSnapToken(order *models.Order, items []PriceCalculationRequest, req *models.CheckoutRequest) (*models.MidtransSnapResponse, error) {
+func (s *checkoutService) generateSnapToken(order *models.Order, items []PriceCalculationRequest, req *models.CheckoutRequest) (*models.MidtransSnapResponse, error) {
 	// Ensure server key is set
 	if s.midtransConfig.ServerKey == "" {
 		return nil, fmt.Errorf("midtrans server key is not set")

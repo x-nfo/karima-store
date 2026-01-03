@@ -60,6 +60,12 @@ func NewRateLimiter(cfg *config.Config) fiber.Handler {
 		Expiration: expiration,
 		Storage:    store,
 		KeyGenerator: func(c *fiber.Ctx) string {
+			// Allow overriding key for testing purposes in non-production environments
+			if cfg.AppEnv != "production" {
+				if testKey := c.Get("X-Test-Key"); testKey != "" {
+					return testKey
+				}
+			}
 			return c.IP()
 		},
 		LimitReached: func(c *fiber.Ctx) error {

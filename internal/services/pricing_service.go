@@ -9,10 +9,19 @@ import (
 	"github.com/karima-store/internal/repository"
 )
 
-type PricingService struct {
+type PricingService interface {
+	CalculatePrice(req PriceCalculationRequest) (*PriceCalculationResponse, error)
+	CalculateShippingCost(req ShippingCalculationRequest) (*ShippingCalculationResponse, error)
+	CheckFreeShipping(orderAmount float64, regionCode string) (bool, error)
+	CalculateOrderSummary(items []PriceCalculationRequest, shippingReq ShippingCalculationRequest, customerType CustomerType) (*OrderSummary, error)
+	CalculateCouponDiscount(req CouponCalculationRequest) (float64, string, error)
+	ApplyCouponToPriceCalculation(resp *PriceCalculationResponse, couponReq CouponCalculationRequest) error
+}
+
+type pricingService struct {
 	productRepo      repository.ProductRepository
 	variantRepo      repository.VariantRepository
-	flashSaleRepo    *repository.FlashSaleRepository
+	flashSaleRepo    repository.FlashSaleRepository
 	couponRepo       repository.CouponRepository
 	shippingZoneRepo repository.ShippingZoneRepository
 	taxRate          float64 // Default tax rate (e.g., 0.11 for 11% VAT)
@@ -90,11 +99,11 @@ type OrderSummary struct {
 func NewPricingService(
 	productRepo repository.ProductRepository,
 	variantRepo repository.VariantRepository,
-	flashSaleRepo *repository.FlashSaleRepository,
+	flashSaleRepo repository.FlashSaleRepository,
 	couponRepo repository.CouponRepository,
 	shippingZoneRepo repository.ShippingZoneRepository,
-) *PricingService {
-	return &PricingService{
+) PricingService {
+	return &pricingService{
 		productRepo:      productRepo,
 		variantRepo:      variantRepo,
 		flashSaleRepo:    flashSaleRepo,
@@ -105,7 +114,7 @@ func NewPricingService(
 }
 
 // CalculatePrice calculates the final price based on customer type, quantity, and active flash sales
-func (s *PricingService) CalculatePrice(req PriceCalculationRequest) (*PriceCalculationResponse, error) {
+func (s *pricingService) CalculatePrice(req PriceCalculationRequest) (*PriceCalculationResponse, error) {
 	// Validate input
 	if req.Quantity <= 0 {
 		return nil, errors.New("quantity must be greater than 0")
@@ -181,7 +190,7 @@ func (s *PricingService) CalculatePrice(req PriceCalculationRequest) (*PriceCalc
 }
 
 // checkFlashSale checks if there's an active flash sale for the product/variant
-func (s *PricingService) checkFlashSale(productID uint, variantID *uint) (float64, *string, bool) {
+func (s *pricingService) checkFlashSale(productID uint, variantID *uint) (float64, *string, bool) {
 	flashSales, err := s.flashSaleRepo.GetActiveFlashSales()
 	if err != nil || len(flashSales) == 0 {
 		return 0, nil, false
@@ -220,7 +229,7 @@ func (s *PricingService) checkFlashSale(productID uint, variantID *uint) (float6
 }
 
 // calculateResellerPrice applies reseller tiering based on quantity
-func (s *PricingService) calculateResellerPrice(basePrice float64, quantity int) (float64, float64) {
+func (s *pricingService) calculateResellerPrice(basePrice float64, quantity int) (float64, float64) {
 	var discountPercent float64
 
 	// Reseller tiering based on quantity
@@ -246,7 +255,7 @@ func (s *PricingService) calculateResellerPrice(basePrice float64, quantity int)
 }
 
 // calculateBulkDiscount applies bulk discount for retail customers
-func (s *PricingService) calculateBulkDiscount(basePrice float64, quantity int) (float64, float64) {
+func (s *pricingService) calculateBulkDiscount(basePrice float64, quantity int) (float64, float64) {
 	var discountPercent float64
 
 	// Bulk discount for retail customers (less aggressive than reseller)
@@ -266,7 +275,7 @@ func (s *PricingService) calculateBulkDiscount(basePrice float64, quantity int) 
 }
 
 // CalculateShippingCost calculates shipping cost based on weight and destination
-func (s *PricingService) CalculateShippingCost(req ShippingCalculationRequest) (*ShippingCalculationResponse, error) {
+func (s *pricingService) CalculateShippingCost(req ShippingCalculationRequest) (*ShippingCalculationResponse, error) {
 	if len(req.Items) == 0 {
 		return nil, errors.New("no items provided")
 	}
@@ -298,7 +307,7 @@ func (s *PricingService) CalculateShippingCost(req ShippingCalculationRequest) (
 }
 
 // calculateTotalWeight calculates the total weight of all items
-func (s *PricingService) calculateTotalWeight(items []ShippingItem) float64 {
+func (s *pricingService) calculateTotalWeight(items []ShippingItem) float64 {
 	var totalWeight float64
 
 	for _, item := range items {
@@ -309,7 +318,7 @@ func (s *PricingService) calculateTotalWeight(items []ShippingItem) float64 {
 }
 
 // calculateShippingCostWithZone calculates shipping cost using zone-specific rates
-func (s *PricingService) calculateShippingCostWithZone(weight float64, shippingType string, zone *models.ShippingZone) float64 {
+func (s *pricingService) calculateShippingCostWithZone(weight float64, shippingType string, zone *models.ShippingZone) float64 {
 	var baseCostPerKg float64
 	var minCost float64
 	var handlingFee float64
@@ -363,7 +372,7 @@ func (s *PricingService) calculateShippingCostWithZone(weight float64, shippingT
 }
 
 // CheckFreeShipping checks if shipping is free based on order amount and zone
-func (s *PricingService) CheckFreeShipping(orderAmount float64, regionCode string) (bool, error) {
+func (s *pricingService) CheckFreeShipping(orderAmount float64, regionCode string) (bool, error) {
 	if regionCode == "" {
 		return false, nil
 	}
@@ -381,7 +390,7 @@ func (s *PricingService) CheckFreeShipping(orderAmount float64, regionCode strin
 }
 
 // estimateDeliveryDays estimates delivery days based on shipping type
-func (s *PricingService) estimateDeliveryDays(shippingType string) int {
+func (s *pricingService) estimateDeliveryDays(shippingType string) int {
 	switch shippingType {
 	case "jne":
 		return 2 // 2 days
@@ -397,7 +406,7 @@ func (s *PricingService) estimateDeliveryDays(shippingType string) int {
 }
 
 // CalculateOrderSummary calculates the complete order summary including pricing and shipping
-func (s *PricingService) CalculateOrderSummary(
+func (s *pricingService) CalculateOrderSummary(
 	items []PriceCalculationRequest,
 	shippingReq ShippingCalculationRequest,
 	customerType CustomerType,
@@ -446,7 +455,7 @@ func (s *PricingService) CalculateOrderSummary(
 }
 
 // CalculateCouponDiscount calculates discount for a coupon code
-func (s *PricingService) CalculateCouponDiscount(req CouponCalculationRequest) (float64, string, error) {
+func (s *pricingService) CalculateCouponDiscount(req CouponCalculationRequest) (float64, string, error) {
 	if req.Code == "" {
 		return 0, "", nil
 	}
@@ -482,7 +491,7 @@ func (s *PricingService) CalculateCouponDiscount(req CouponCalculationRequest) (
 }
 
 // ApplyCouponToPriceCalculation applies coupon discount to price calculation
-func (s *PricingService) ApplyCouponToPriceCalculation(
+func (s *pricingService) ApplyCouponToPriceCalculation(
 	resp *PriceCalculationResponse,
 	couponReq CouponCalculationRequest,
 ) error {

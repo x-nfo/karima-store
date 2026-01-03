@@ -44,7 +44,7 @@ cors:
 ```yaml
 cors:
   allowed_origins:
-    - https://karima.com
+    - https://karimasyari.com
     - https://admin.ks-backend.cloud
 ```
 
@@ -92,8 +92,8 @@ selfservice:
 | `KRATOS_DSN` | PostgreSQL connection string | `postgresql://kratos:password@localhost:5432/kratos?sslmode=require` |
 | `KRATOS_PUBLIC_BASE_URL` | Public API endpoint | `https://auth.ks-backend.cloud/` |
 | `KRATOS_ADMIN_BASE_URL` | Admin API endpoint | `http://127.0.0.1:4434/` |
-| `KRATOS_UI_URL` | Frontend application URL | `https://karima.com` |
-| `KRATOS_DEFAULT_RETURN_URL` | Default return URL after auth | `https://karima.com/` |
+| `KRATOS_UI_URL` | Frontend application URL | `https://karimasyari.com` |
+| `KRATOS_DEFAULT_RETURN_URL` | Default return URL after auth | `https://karimasyari.com/` |
 | `KRATOS_SECRET_COOKIE` | Cookie signing secret (min 32 chars) | `a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6` |
 | `KRATOS_SECRET_CIPHER` | Cipher encryption secret (exactly 32 chars) | `a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6` |
 | `KRATOS_SMTP_CONNECTION_URI` | SMTP server for emails | `smtps://user:pass@smtp.example.com:465/?skip_ssl_verify=false` |

@@ -12,21 +12,33 @@ import (
 )
 
 // NotificationService handles all notification-related operations
-type NotificationService struct {
+type NotificationService interface {
+	SendWhatsAppMessage(order *models.Order, message string, recipient string) error
+	SendOrderCreatedNotification(order *models.Order) error
+	SendPaymentSuccessNotification(order *models.Order) error
+	SendShippingNotification(order *models.Order, trackingNumber string) error
+	GetWhatsAppStatus() (string, error)
+	SendTestWhatsAppMessage(phoneNumber string, message string) error
+	ProcessWhatsAppWebhook(data map[string]interface{}) error
+	GetWhatsAppWebhookURL() string
+	GetDB() interface{}
+}
+
+type notificationService struct {
 	db           *database.PostgreSQL
-	redis        *database.Redis
+	redis        database.RedisClient
 	fonnteClient *fonnte.Client
 	cfg          *config.Config
 }
 
 // NewNotificationService creates a new notification service instance
-func NewNotificationService(db *database.PostgreSQL, redis *database.Redis, cfg *config.Config) *NotificationService {
+func NewNotificationService(db *database.PostgreSQL, redis database.RedisClient, cfg *config.Config) NotificationService {
 	var fonnteClient *fonnte.Client
 	if cfg.FonnteToken != "" {
 		fonnteClient = fonnte.NewClient(cfg.FonnteToken, cfg.FonnteURL)
 	}
 
-	return &NotificationService{
+	return &notificationService{
 		db:           db,
 		redis:        redis,
 		fonnteClient: fonnteClient,
@@ -34,12 +46,12 @@ func NewNotificationService(db *database.PostgreSQL, redis *database.Redis, cfg 
 	}
 }
 
-func (s *NotificationService) GetDB() interface{} {
+func (s *notificationService) GetDB() interface{} {
 	return s.db.DB()
 }
 
 // sendWhatsAppAsync sends WhatsApp message asynchronously using goroutine
-func (s *NotificationService) sendWhatsAppAsync(phoneNumber, message string, wg *sync.WaitGroup) {
+func (s *notificationService) sendWhatsAppAsync(phoneNumber, message string, wg *sync.WaitGroup) {
 	if wg != nil {
 		defer wg.Done()
 	}
@@ -66,7 +78,7 @@ func (s *NotificationService) sendWhatsAppAsync(phoneNumber, message string, wg 
 }
 
 // SendWhatsAppMessage sends a message via WhatsApp Gateway API (Fonnte)
-func (s *NotificationService) SendWhatsAppMessage(order *models.Order, message string, recipient string) error {
+func (s *notificationService) SendWhatsAppMessage(order *models.Order, message string, recipient string) error {
 	if s.fonnteClient == nil {
 		log.Printf("[WhatsApp] Fonnte client not configured")
 		return fmt.Errorf("fonnte client not configured")
@@ -89,7 +101,7 @@ func (s *NotificationService) SendWhatsAppMessage(order *models.Order, message s
 }
 
 // SendOrderCreatedNotification sends notification when order is created (ASYNC)
-func (s *NotificationService) SendOrderCreatedNotification(order *models.Order) error {
+func (s *notificationService) SendOrderCreatedNotification(order *models.Order) error {
 	if s.fonnteClient == nil {
 		log.Printf("[WhatsApp] Fonnte not configured, skipping order created notification for %s", order.OrderNumber)
 		return nil
@@ -121,7 +133,7 @@ func (s *NotificationService) SendOrderCreatedNotification(order *models.Order) 
 }
 
 // SendPaymentSuccessNotification sends notification when payment is successful (ASYNC)
-func (s *NotificationService) SendPaymentSuccessNotification(order *models.Order) error {
+func (s *notificationService) SendPaymentSuccessNotification(order *models.Order) error {
 	if s.fonnteClient == nil {
 		log.Printf("[WhatsApp] Fonnte not configured, skipping payment success notification for %s", order.OrderNumber)
 		return nil
@@ -153,7 +165,7 @@ func (s *NotificationService) SendPaymentSuccessNotification(order *models.Order
 }
 
 // SendShippingNotification sends notification when order is shipped (ASYNC)
-func (s *NotificationService) SendShippingNotification(order *models.Order, trackingNumber string) error {
+func (s *notificationService) SendShippingNotification(order *models.Order, trackingNumber string) error {
 	if s.fonnteClient == nil {
 		return nil
 	}
@@ -180,7 +192,7 @@ func (s *NotificationService) SendShippingNotification(order *models.Order, trac
 }
 
 // GetWhatsAppStatus checks WhatsApp service status
-func (s *NotificationService) GetWhatsAppStatus() (string, error) {
+func (s *notificationService) GetWhatsAppStatus() (string, error) {
 	if s.fonnteClient == nil {
 		return "not_configured", nil
 	}
@@ -197,7 +209,7 @@ func (s *NotificationService) GetWhatsAppStatus() (string, error) {
 }
 
 // SendTestWhatsAppMessage sends a test message to verify WhatsApp integration
-func (s *NotificationService) SendTestWhatsAppMessage(phoneNumber string, message string) error {
+func (s *notificationService) SendTestWhatsAppMessage(phoneNumber string, message string) error {
 	if s.fonnteClient == nil {
 		return fmt.Errorf("fonnte client not configured")
 	}
@@ -217,14 +229,14 @@ func (s *NotificationService) SendTestWhatsAppMessage(phoneNumber string, messag
 }
 
 // ProcessWhatsAppWebhook handles WhatsApp webhook events
-func (s *NotificationService) ProcessWhatsAppWebhook(data map[string]interface{}) error {
+func (s *notificationService) ProcessWhatsAppWebhook(data map[string]interface{}) error {
 	log.Printf("[WhatsApp Webhook] Received: %v", data)
 	// Process webhook data as needed
 	return nil
 }
 
 // GetWhatsAppWebhookURL returns the webhook URL for WhatsApp
-func (s *NotificationService) GetWhatsAppWebhookURL() string {
+func (s *notificationService) GetWhatsAppWebhookURL() string {
 	return fmt.Sprintf("https://api.karimastore.com/api/v1/whatsapp/webhook")
 }
 

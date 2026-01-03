@@ -1,17 +1,18 @@
 package services
 
 import (
+	"bytes"
 	"errors"
 	"mime/multipart"
-	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/karima-store/internal/config"
 	"github.com/karima-store/internal/models"
+	"github.com/karima-store/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"gorm.io/gorm"
 )
 
 // MockMediaRepository for testing
@@ -57,11 +58,86 @@ func (m *MockMediaRepository) UnsetPrimary(productID uint) error {
 	return args.Error(0)
 }
 
+func (m *MockMediaRepository) GetAll() ([]models.Media, error) {
+	args := m.Called()
+	return args.Get(0).([]models.Media), args.Error(1)
+}
+
 // MockProductRepository for testing
 type MockProductRepositoryForMedia struct {
 	mock.Mock
 }
 
+func (m *MockProductRepositoryForMedia) Create(product *models.Product) error {
+	args := m.Called(product)
+	return args.Error(0)
+}
+
+func (m *MockProductRepositoryForMedia) GetByID(id uint) (*models.Product, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Product), args.Error(1)
+}
+
+func (m *MockProductRepositoryForMedia) GetBySlug(slug string) (*models.Product, error) {
+	args := m.Called(slug)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Product), args.Error(1)
+}
+
+func (m *MockProductRepositoryForMedia) GetAll(limit, offset int, filters map[string]interface{}) ([]models.Product, int64, error) {
+	args := m.Called(limit, offset, filters)
+	return args.Get(0).([]models.Product), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockProductRepositoryForMedia) Update(product *models.Product) error {
+	args := m.Called(product)
+	return args.Error(0)
+}
+
+func (m *MockProductRepositoryForMedia) Delete(id uint) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+func (m *MockProductRepositoryForMedia) UpdateStock(id uint, quantity int) error {
+	args := m.Called(id, quantity)
+	return args.Error(0)
+}
+
+func (m *MockProductRepositoryForMedia) IncrementViewCount(id uint) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+func (m *MockProductRepositoryForMedia) Search(query string, limit, offset int) ([]models.Product, int64, error) {
+	args := m.Called(query, limit, offset)
+	return args.Get(0).([]models.Product), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockProductRepositoryForMedia) GetByCategory(category models.ProductCategory, limit, offset int) ([]models.Product, int64, error) {
+	args := m.Called(category, limit, offset)
+	return args.Get(0).([]models.Product), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockProductRepositoryForMedia) GetFeatured(limit int) ([]models.Product, error) {
+	args := m.Called(limit)
+	return args.Get(0).([]models.Product), args.Error(1)
+}
+
+func (m *MockProductRepositoryForMedia) GetBestSellers(limit int) ([]models.Product, error) {
+	args := m.Called(limit)
+	return args.Get(0).([]models.Product), args.Error(1)
+}
+
+func (m *MockProductRepositoryForMedia) WithTx(tx *gorm.DB) repository.ProductRepository {
+	args := m.Called(tx)
+	return args.Get(0).(repository.ProductRepository)
+}
 func TestMediaService_ValidateImageFile_ValidImage(t *testing.T) {
 	mockMediaRepo := new(MockMediaRepository)
 	mockProductRepo := new(MockProductRepositoryForMedia)
@@ -97,13 +173,15 @@ func TestMediaService_ValidateImageFile_TooLarge(t *testing.T) {
 
 	service := NewMediaService(mockMediaRepo, mockProductRepo, cfg)
 
-	// Create a file that's too large (6MB)
-	largeFile := createTestImageHeader("large.jpg", 6*1024*1024, []byte{0xFF, 0xD8, 0xFF, 0xE0})
+	// Create a file that's too large (11MB)
+	largeFile := createTestImageHeader("large.jpg", 11*1024*1024, []byte{0xFF, 0xD8, 0xFF, 0xE0})
 
 	err := service.ValidateImageFile(largeFile)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "file size exceeds 5MB limit")
+	if err != nil {
+		assert.Contains(t, err.Error(), "file size exceeds 10MB limit")
+	}
 }
 
 func TestMediaService_ValidateImageFile_InvalidExtension(t *testing.T) {
@@ -351,40 +429,42 @@ func TestMediaService_UploadImage_DuplicateUpload(t *testing.T) {
 	mockMediaRepo.AssertExpectations(t)
 }
 
-// Helper function to create a test file header
+// Helper function to create a test file header with actual file content
 func createTestImageHeader(filename string, size int64, content []byte) *multipart.FileHeader {
-	// Create a test file
-	file := httptest.NewMultipartReader(strings.NewReader(string(content)), "boundary")
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
 
-	// Create a file header
-	header := &multipart.FileHeader{
-		Filename: filename,
-		Size:     size,
-		Header:   make(http.Header),
+	// Create form file
+	part, err := writer.CreateFormFile("image", filename)
+	if err != nil {
+		panic(err)
 	}
 
-	// Set content type
-	header.Header.Set("Content-Type", "image/jpeg")
+	// Write content
+	if len(content) > 0 {
+		part.Write(content)
+	}
 
-	// Create a reader for the file content
-	reader := strings.NewReader(string(content))
-	headerReader := &readCloser{reader: reader}
+	writer.Close()
 
-	// Set the file
-	header.File = headerReader
+	// Create request
+	req := httptest.NewRequest("POST", "/", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	return header
-}
+	// Parse multipart form
+	// Use sufficient memory to hold the content
+	err = req.ParseMultipartForm(32 << 20) // 32MB max memory
+	if err != nil {
+		panic(err)
+	}
 
-// readCloser is a helper to implement io.ReadCloser
-type readCloser struct {
-	reader *strings.Reader
-}
+	// Get file header
+	fileHeader := req.MultipartForm.File["image"][0]
 
-func (rc *readCloser) Read(p []byte) (n int, err error) {
-	return rc.reader.Read(p)
-}
+	// Override size if specified (useful for testing size limits without allocating 10MB)
+	if size > 0 && int64(len(content)) < size {
+		fileHeader.Size = size
+	}
 
-func (rc *readCloser) Close() error {
-	return nil
+	return fileHeader
 }

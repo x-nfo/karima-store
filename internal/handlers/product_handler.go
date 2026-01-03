@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/karima-store/internal/models"
@@ -11,10 +12,10 @@ import (
 
 type ProductHandler struct {
 	productService services.ProductService
-	mediaService   *services.MediaService
+	mediaService   services.MediaService
 }
 
-func NewProductHandler(productService services.ProductService, mediaService *services.MediaService) *ProductHandler {
+func NewProductHandler(productService services.ProductService, mediaService services.MediaService) *ProductHandler {
 	return &ProductHandler{
 		productService: productService,
 		mediaService:   mediaService,
@@ -210,6 +211,9 @@ func (h *ProductHandler) UpdateProduct(c *fiber.Ctx) error {
 	}
 
 	if err := h.productService.UpdateProduct(uint(id), &product); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return utils.SendError(c, fiber.StatusNotFound, "Product not found", nil)
+		}
 		return utils.SendError(c, fiber.StatusBadRequest, err.Error(), nil)
 	}
 

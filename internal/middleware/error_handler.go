@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"os"
 	"github.com/karima-store/internal/errors"
 	"github.com/karima-store/internal/utils"
 	"strings"
@@ -34,11 +35,11 @@ func handleError(c *fiber.Ctx, err error) error {
 	// Check if it's an AppError
 	if appErr := errors.GetAppError(err); appErr != nil {
 		// In production, don't expose stack traces
-		if fiber.IsProduction() {
+		if os.Getenv("APP_ENV") == "production" {
 			appErr.Stack = ""
 		}
 
-		return utils.SendError(c, appErr.StatusCode, map[string]interface{}{
+		return utils.SendError(c, appErr.StatusCode, appErr.Message, map[string]interface{}{
 			"code":      string(appErr.Code),
 			"message":   appErr.Message,
 			"details":   appErr.Details,
@@ -48,14 +49,14 @@ func handleError(c *fiber.Ctx, err error) error {
 
 	// Check if it's a Fiber error
 	if fiberErr, ok := err.(*fiber.Error); ok {
-		return utils.SendError(c, fiberErr.Code, map[string]interface{}{
+		return utils.SendError(c, fiberErr.Code, fiberErr.Message, map[string]interface{}{
 			"code":    "FIBER_ERROR",
 			"message": fiberErr.Message,
 		})
 	}
 
 	// Handle unknown errors
-	return utils.SendError(c, fiber.StatusInternalServerError, map[string]interface{}{
+	return utils.SendError(c, fiber.StatusInternalServerError, "An unexpected error occurred", map[string]interface{}{
 		"code":    "INTERNAL_ERROR",
 		"message": "An unexpected error occurred",
 	})
@@ -101,9 +102,9 @@ func RecoverMiddleware() fiber.Handler {
 			if r := recover(); r != nil {
 				err := fmt.Errorf("panic recovered: %v", r)
 				logError(c, err)
-				
+
 				// Return internal server error
-				_ = utils.SendError(c, fiber.StatusInternalServerError, map[string]interface{}{
+				_ = utils.SendError(c, fiber.StatusInternalServerError, "An unexpected error occurred", map[string]interface{}{
 					"code":    "INTERNAL_ERROR",
 					"message": "An unexpected error occurred",
 				})
@@ -125,13 +126,13 @@ func ValidateAndHandle(c *fiber.Ctx, validator interface{}) error {
 	// This is a placeholder for validation logic
 	// In a real implementation, you would use a validation library
 	// like go-playground/validator
-	
+
 	// Example validation logic:
 	/*
 	if err := c.BodyParser(validator); err != nil {
 		return errors.NewInvalidInputError("Invalid request body")
 	}
-	
+
 	if err := validate.Struct(validator); err != nil {
 		var validationErrors []ValidationError
 		for _, err := range err.(validator.ValidationErrors) {
@@ -143,7 +144,7 @@ func ValidateAndHandle(c *fiber.Ctx, validator interface{}) error {
 		return errors.NewValidationErrorFromDetails(validationErrors)
 	}
 	*/
-	
+
 	return c.Next()
 }
 
@@ -157,11 +158,11 @@ func getValidationMessage(field string, tag string) string {
 		"gte":      "Value is too small",
 		"lte":      "Value is too large",
 	}
-	
+
 	if msg, ok := messages[tag]; ok {
 		return msg
 	}
-	
+
 	return fmt.Sprintf("Validation failed on %s", tag)
 }
 

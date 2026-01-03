@@ -259,7 +259,7 @@ func checkDatabase(db *database.PostgreSQL) error {
 	return nil
 }
 
-func checkRedis(redis *database.Redis) error {
+func checkRedis(redis database.RedisClient) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
@@ -279,7 +279,6 @@ func checkRedis(redis *database.Redis) error {
 
 	return nil
 }
-
 
 // Helper functions for environment variables
 func getEnv(key, defaultValue string) string {
@@ -301,4 +300,3 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 	}
 	return boolValue
 }
-

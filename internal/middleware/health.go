@@ -2,9 +2,9 @@ package middleware
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/karima-store/internal/config"
-	"github.com/karima-store/internal/database"
 	"github.com/karima-store/internal/storage"
 	"runtime"
 	"sync"
@@ -47,7 +47,7 @@ func NewDatabaseHealthChecker(db *gorm.DB) *DatabaseHealthChecker {
 
 func (c *DatabaseHealthChecker) Check(ctx context.Context) Service {
 	start := time.Now()
-	
+
 	sqlDB, err := c.db.DB()
 	if err != nil {
 		return Service{
@@ -68,12 +68,13 @@ func (c *DatabaseHealthChecker) Check(ctx context.Context) Service {
 
 	// Get database stats
 	var stats map[string]interface{}
-	if sqlDB.Stats() != (sqlDB.Stats{}) {
+	dbStats := sqlDB.Stats()
+	if dbStats != (sql.DBStats{}) {
 		stats = map[string]interface{}{
-			"max_open_connections": sqlDB.Stats().MaxOpenConnections,
-			"open_connections":     sqlDB.Stats().OpenConnections,
-			"in_use":              sqlDB.Stats().InUse,
-			"idle":                sqlDB.Stats().Idle,
+			"max_open_connections": dbStats.MaxOpenConnections,
+			"open_connections":     dbStats.OpenConnections,
+			"in_use":              dbStats.InUse,
+			"idle":                dbStats.Idle,
 		}
 	}
 
@@ -96,7 +97,7 @@ func NewRedisHealthChecker(client *redis.Client) *RedisHealthChecker {
 
 func (c *RedisHealthChecker) Check(ctx context.Context) Service {
 	start := time.Now()
-	
+
 	// Ping Redis
 	err := c.client.Ping(ctx).Err()
 	if err != nil {
@@ -138,7 +139,7 @@ func NewStorageHealthChecker(storage *storage.R2Storage) *StorageHealthChecker {
 
 func (c *StorageHealthChecker) Check(ctx context.Context) Service {
 	start := time.Now()
-	
+
 	// Check if storage is initialized
 	if c.storage == nil {
 		return Service{
@@ -166,14 +167,14 @@ func NewSystemHealthChecker() *SystemHealthChecker {
 
 func (c *SystemHealthChecker) Check(ctx context.Context) Service {
 	start := time.Now()
-	
+
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
 	// Check if system is under heavy load
 	healthy := true
 	message := "System is healthy"
-	
+
 	if m.Alloc > 1024*1024*1024 { // > 1GB
 		healthy = false
 		message = "High memory usage"
@@ -238,12 +239,12 @@ func (m *HealthCheckManager) Check(ctx context.Context) HealthStatus {
 		wg.Add(1)
 		go func(name string, checker HealthChecker) {
 			defer wg.Done()
-			
+
 			service := checker.Check(ctx)
-			
+
 			mu.Lock()
 			services[name] = service
-			
+
 			// Update overall status
 			if service.Status == "unhealthy" {
 				overallStatus = "unhealthy"
@@ -313,7 +314,7 @@ func HealthCheckHandler() fiber.Handler {
 		}
 
 		status := healthCheckManager.Check(c.Context())
-		
+
 		// Set appropriate HTTP status code
 		httpStatus := fiber.StatusOK
 		if status.Status == "degraded" {
@@ -337,11 +338,11 @@ func ReadinessHandler() fiber.Handler {
 		}
 
 		status := healthCheckManager.Check(c.Context())
-		
+
 		// Check if critical services are healthy
 		criticalServices := []string{"database", "redis"}
 		allHealthy := true
-		
+
 		for _, service := range criticalServices {
 			if serviceStatus, exists := status.Services[service]; exists {
 				if serviceStatus.Status != "healthy" {

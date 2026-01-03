@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
 	"github.com/karima-store/internal/database"
 	"github.com/karima-store/internal/models"
 	"github.com/karima-store/internal/repository"
+	"gorm.io/gorm"
 )
 
 type ProductService interface {
@@ -32,10 +33,10 @@ type ProductService interface {
 type productService struct {
 	productRepo repository.ProductRepository
 	variantRepo repository.VariantRepository
-	redis       *database.Redis
+	redis       database.RedisClient
 }
 
-func NewProductService(productRepo repository.ProductRepository, variantRepo repository.VariantRepository, redis *database.Redis) ProductService {
+func NewProductService(productRepo repository.ProductRepository, variantRepo repository.VariantRepository, redis database.RedisClient) ProductService {
 	return &productService{
 		productRepo: productRepo,
 		variantRepo: variantRepo,
@@ -206,7 +207,7 @@ func (s *productService) UpdateProduct(id uint, product *models.Product) error {
 	if product.Slug != "" && product.Slug != existingProduct.Slug {
 		_ = s.redis.Delete(ctx, fmt.Sprintf("product:slug:%s", product.Slug)) // New slug (just in case)
 	}
-	
+
 	// Invalidate list caches
 	_ = s.redis.DeleteByPattern(ctx, "products:*")
 
@@ -407,7 +408,8 @@ func (s *productService) GenerateSlug(name string) string {
 	}, slug)
 
 	// Remove multiple consecutive hyphens
-	slug = strings.ReplaceAll(slug, "--", "-")
+	regex := regexp.MustCompile(`-+`)
+	slug = regex.ReplaceAllString(slug, "-")
 
 	// Trim hyphens from start and end
 	slug = strings.Trim(slug, "-")

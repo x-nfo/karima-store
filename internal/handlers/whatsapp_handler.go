@@ -12,11 +12,11 @@ import (
 
 // WhatsAppHandler handles WhatsApp API endpoints
 type WhatsAppHandler struct {
-	notificationService *services.NotificationService
+	notificationService services.NotificationService
 }
 
 // NewWhatsAppHandler creates a new WhatsApp handler instance
-func NewWhatsAppHandler(notificationService *services.NotificationService) *WhatsAppHandler {
+func NewWhatsAppHandler(notificationService services.NotificationService) *WhatsAppHandler {
 	return &WhatsAppHandler{
 		notificationService: notificationService,
 	}

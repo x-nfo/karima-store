@@ -11,11 +11,26 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type Redis struct {
+type RedisClient interface {
+	Get(ctx context.Context, key string) (string, error)
+	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
+	GetJSON(ctx context.Context, key string, dest interface{}) error
+	SetJSON(ctx context.Context, key string, value interface{}, expiration time.Duration) error
+	Delete(ctx context.Context, keys ...string) error
+	Exists(ctx context.Context, keys ...string) (int64, error)
+	FlushDB(ctx context.Context) error
+	DeleteByPattern(ctx context.Context, pattern string) error
+	HealthCheck(ctx context.Context) error
+	PoolStats() map[string]interface{}
+	Client() *redis.Client
+	Close() error
+}
+
+type redisStart struct {
 	client *redis.Client
 }
 
-func NewRedis(cfg *config.Config) (*Redis, error) {
+func NewRedis(cfg *config.Config) (RedisClient, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHost, cfg.RedisPort),
 		Password: cfg.RedisPassword,
@@ -42,29 +57,29 @@ func NewRedis(cfg *config.Config) (*Redis, error) {
 
 	log.Println("Successfully connected to Redis")
 
-	return &Redis{client: client}, nil
+	return &redisStart{client: client}, nil
 }
 
-func (r *Redis) Client() *redis.Client {
+func (r *redisStart) Client() *redis.Client {
 	return r.client
 }
 
-func (r *Redis) Close() error {
+func (r *redisStart) Close() error {
 	return r.client.Close()
 }
 
 // Get retrieves a value from Redis
-func (r *Redis) Get(ctx context.Context, key string) (string, error) {
+func (r *redisStart) Get(ctx context.Context, key string) (string, error) {
 	return r.client.Get(ctx, key).Result()
 }
 
 // Set stores a value in Redis with an expiration time
-func (r *Redis) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+func (r *redisStart) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
 	return r.client.Set(ctx, key, value, expiration).Err()
 }
 
 // GetJSON retrieves a JSON value from Redis and unmarshals it into dest
-func (r *Redis) GetJSON(ctx context.Context, key string, dest interface{}) error {
+func (r *redisStart) GetJSON(ctx context.Context, key string, dest interface{}) error {
 	val, err := r.client.Get(ctx, key).Result()
 	if err != nil {
 		return err
@@ -73,7 +88,7 @@ func (r *Redis) GetJSON(ctx context.Context, key string, dest interface{}) error
 }
 
 // SetJSON marshals a value to JSON and stores it in Redis with an expiration time
-func (r *Redis) SetJSON(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+func (r *redisStart) SetJSON(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
 	bytes, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -82,22 +97,22 @@ func (r *Redis) SetJSON(ctx context.Context, key string, value interface{}, expi
 }
 
 // Delete removes a key from Redis
-func (r *Redis) Delete(ctx context.Context, keys ...string) error {
+func (r *redisStart) Delete(ctx context.Context, keys ...string) error {
 	return r.client.Del(ctx, keys...).Err()
 }
 
 // Exists checks if a key exists in Redis
-func (r *Redis) Exists(ctx context.Context, keys ...string) (int64, error) {
+func (r *redisStart) Exists(ctx context.Context, keys ...string) (int64, error) {
 	return r.client.Exists(ctx, keys...).Result()
 }
 
 // FlushDB clears the current database
-func (r *Redis) FlushDB(ctx context.Context) error {
+func (r *redisStart) FlushDB(ctx context.Context) error {
 	return r.client.FlushDB(ctx).Err()
 }
 
 // DeleteByPattern deletes all keys matching a pattern
-func (r *Redis) DeleteByPattern(ctx context.Context, pattern string) error {
+func (r *redisStart) DeleteByPattern(ctx context.Context, pattern string) error {
 	var cursor uint64
 	var keys []string
 	var err error
@@ -122,12 +137,12 @@ func (r *Redis) DeleteByPattern(ctx context.Context, pattern string) error {
 }
 
 // HealthCheck pings Redis to verify connection health
-func (r *Redis) HealthCheck(ctx context.Context) error {
+func (r *redisStart) HealthCheck(ctx context.Context) error {
 	return r.client.Ping(ctx).Err()
 }
 
 // PoolStats returns Redis connection pool statistics
-func (r *Redis) PoolStats() map[string]interface{} {
+func (r *redisStart) PoolStats() map[string]interface{} {
 	stats := r.client.PoolStats()
 	return map[string]interface{}{
 		"hits":        stats.Hits,

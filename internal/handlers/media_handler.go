@@ -8,10 +8,10 @@ import (
 )
 
 type MediaHandler struct {
-	mediaService *services.MediaService
+	mediaService services.MediaService
 }
 
-func NewMediaHandler(mediaService *services.MediaService) *MediaHandler {
+func NewMediaHandler(mediaService services.MediaService) *MediaHandler {
 	return &MediaHandler{
 		mediaService: mediaService,
 	}

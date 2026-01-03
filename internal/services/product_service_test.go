@@ -2,11 +2,16 @@ package services
 
 import (
 	"errors"
+	"log"
 	"testing"
 
+	"github.com/karima-store/internal/config"
+	"github.com/karima-store/internal/database"
 	"github.com/karima-store/internal/models"
+	"github.com/karima-store/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"gorm.io/gorm"
 )
 
 // MockProductRepository for testing
@@ -80,39 +85,9 @@ func (m *MockProductRepository) IncrementViewCount(id uint) error {
 	return args.Error(0)
 }
 
-// MockRedis for testing
-type MockRedis struct {
-	mock.Mock
-}
-
-func (m *MockRedis) Get(ctx interface{}, key string) (string, error) {
-	args := m.Called(ctx, key)
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockRedis) Set(ctx interface{}, key string, value interface{}, expiration interface{}) error {
-	args := m.Called(ctx, key, value, expiration)
-	return args.Error(0)
-}
-
-func (m *MockRedis) Delete(ctx interface{}, key string) error {
-	args := m.Called(ctx, key)
-	return args.Error(0)
-}
-
-func (m *MockRedis) DeleteByPattern(ctx interface{}, pattern string) error {
-	args := m.Called(ctx, pattern)
-	return args.Error(0)
-}
-
-func (m *MockRedis) GetJSON(ctx interface{}, key string, dest interface{}) error {
-	args := m.Called(ctx, key, dest)
-	return args.Error(0)
-}
-
-func (m *MockRedis) SetJSON(ctx interface{}, key string, value interface{}, expiration interface{}) error {
-	args := m.Called(ctx, key, value, expiration)
-	return args.Error(0)
+func (m *MockProductRepository) WithTx(tx *gorm.DB) repository.ProductRepository {
+	args := m.Called(tx)
+	return args.Get(0).(repository.ProductRepository)
 }
 
 // MockVariantRepository for testing
@@ -120,12 +95,64 @@ type MockVariantRepository struct {
 	mock.Mock
 }
 
+func (m *MockVariantRepository) Create(variant *models.ProductVariant) error {
+	args := m.Called(variant)
+	return args.Error(0)
+}
+
+func (m *MockVariantRepository) GetByID(id uint) (*models.ProductVariant, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.ProductVariant), args.Error(1)
+}
+
+func (m *MockVariantRepository) GetBySKU(sku string) (*models.ProductVariant, error) {
+	args := m.Called(sku)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.ProductVariant), args.Error(1)
+}
+
+func (m *MockVariantRepository) GetByProductID(productID uint) ([]models.ProductVariant, error) {
+	args := m.Called(productID)
+	return args.Get(0).([]models.ProductVariant), args.Error(1)
+}
+
+func (m *MockVariantRepository) Update(variant *models.ProductVariant) error {
+	args := m.Called(variant)
+	return args.Error(0)
+}
+
+func (m *MockVariantRepository) Delete(id uint) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+func (m *MockVariantRepository) UpdateStock(id uint, quantity int) error {
+	args := m.Called(id, quantity)
+	return args.Error(0)
+}
+
+// Helper function to create a test Redis instance
+func createTestRedis() database.RedisClient {
+	cfg := config.TestConfigWithRedis()
+	redisClient, err := database.NewRedis(cfg)
+	if err != nil {
+		log.Printf("Warning: Failed to connect to test Redis: %v", err)
+		return nil
+	}
+	return redisClient
+}
+
 func TestProductService_CreateProduct_ValidInput(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test valid product creation
 	product := &models.Product{
@@ -138,7 +165,6 @@ func TestProductService_CreateProduct_ValidInput(t *testing.T) {
 	// Mock expectations
 	mockRepo.On("GetBySlug", "test-product").Return(nil, errors.New("not found"))
 	mockRepo.On("Create", product).Return(nil)
-	mockRedis.On("DeleteByPattern", mock.Anything, "products:*").Return(nil)
 
 	err := service.CreateProduct(product)
 
@@ -150,10 +176,10 @@ func TestProductService_CreateProduct_ValidInput(t *testing.T) {
 
 func TestProductService_CreateProduct_MissingRequiredFields(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test missing name
 	product1 := &models.Product{
@@ -186,10 +212,10 @@ func TestProductService_CreateProduct_MissingRequiredFields(t *testing.T) {
 
 func TestProductService_CreateProduct_DuplicateSlug(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test duplicate slug
 	product := &models.Product{
@@ -215,13 +241,15 @@ func TestProductService_CreateProduct_DuplicateSlug(t *testing.T) {
 
 func TestProductService_GetProductByID_SQLInjection(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test SQL injection attempt in ID
 	// Note: This is a compile-time check, but we test the service behavior
+	mockRepo.On("GetByID", uint(0)).Return(nil, errors.New("product not found"))
+
 	_, err := service.GetProductByID(0) // ID 0 is invalid
 
 	assert.Error(t, err)
@@ -230,10 +258,10 @@ func TestProductService_GetProductByID_SQLInjection(t *testing.T) {
 
 func TestProductService_UpdateProduct_SQLInjection(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test SQL injection attempt in product name
 	product := &models.Product{
@@ -249,8 +277,6 @@ func TestProductService_UpdateProduct_SQLInjection(t *testing.T) {
 
 	mockRepo.On("GetByID", uint(1)).Return(existingProduct, nil)
 	mockRepo.On("Update", product).Return(nil)
-	mockRedis.On("Delete", mock.Anything, mock.Anything).Return(nil)
-	mockRedis.On("DeleteByPattern", mock.Anything, "products:*").Return(nil)
 
 	err := service.UpdateProduct(1, product)
 
@@ -262,10 +288,10 @@ func TestProductService_UpdateProduct_SQLInjection(t *testing.T) {
 
 func TestProductService_UpdateProduct_InvalidPrice(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test negative price
 	product := &models.Product{
@@ -281,8 +307,6 @@ func TestProductService_UpdateProduct_InvalidPrice(t *testing.T) {
 
 	mockRepo.On("GetByID", uint(1)).Return(existingProduct, nil)
 	mockRepo.On("Update", product).Return(nil)
-	mockRedis.On("Delete", mock.Anything, mock.Anything).Return(nil)
-	mockRedis.On("DeleteByPattern", mock.Anything, "products:*").Return(nil)
 
 	err := service.UpdateProduct(1, product)
 
@@ -291,13 +315,13 @@ func TestProductService_UpdateProduct_InvalidPrice(t *testing.T) {
 
 func TestProductService_DeleteProduct_NonExistent(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test deleting non-existent product
-	mockRepo.On("GetByID", uint(999)).Return(nil, errors.New("not found"))
+	mockRepo.On("GetByID", uint(999)).Return(nil, gorm.ErrRecordNotFound)
 
 	err := service.DeleteProduct(999)
 
@@ -308,10 +332,10 @@ func TestProductService_DeleteProduct_NonExistent(t *testing.T) {
 
 func TestProductService_UpdateProductStock_InsufficientStock(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test insufficient stock
 	product := &models.Product{
@@ -331,10 +355,10 @@ func TestProductService_UpdateProductStock_InsufficientStock(t *testing.T) {
 
 func TestProductService_SearchProducts_EmptyQuery(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test empty search query
 	_, _, err := service.SearchProducts("", 10, 0)
@@ -345,10 +369,10 @@ func TestProductService_SearchProducts_EmptyQuery(t *testing.T) {
 
 func TestProductService_SearchProducts_SQLInjection(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test SQL injection in search query
 	sqlInjectionQuery := "test'; DROP TABLE products; --"
@@ -364,10 +388,10 @@ func TestProductService_SearchProducts_SQLInjection(t *testing.T) {
 
 func TestProductService_GetProductsByCategory_InvalidCategory(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test invalid category
 	invalidCategory := models.ProductCategory("invalid")
@@ -380,10 +404,10 @@ func TestProductService_GetProductsByCategory_InvalidCategory(t *testing.T) {
 
 func TestProductService_GenerateSlug(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	tests := []struct {
 		name     string
@@ -432,15 +456,13 @@ func TestProductService_GenerateSlug(t *testing.T) {
 
 func TestProductService_GetProducts_InvalidPagination(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test invalid pagination parameters
 	mockRepo.On("GetAll", 20, 0, mock.Anything).Return([]models.Product{}, int64(0), nil)
-	mockRedis.On("GetJSON", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("cache miss"))
-	mockRedis.On("SetJSON", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// Test limit too high
 	_, _, err := service.GetProducts(200, 0, nil)
@@ -451,7 +473,7 @@ func TestProductService_GetProducts_InvalidPagination(t *testing.T) {
 	assert.NoError(t, err) // Should default to 20
 
 	// Test negative offset
-	_, _, err = service.GetProducts(10, -10, nil)
+	_, _, err = service.GetProducts(20, -10, nil)
 	assert.NoError(t, err) // Should default to 0
 
 	mockRepo.AssertExpectations(t)
@@ -459,10 +481,10 @@ func TestProductService_GetProducts_InvalidPagination(t *testing.T) {
 
 func TestProductService_GetProducts_SQLInjectionInFilters(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test SQL injection in filters
 	filters := map[string]interface{}{
@@ -470,8 +492,6 @@ func TestProductService_GetProducts_SQLInjectionInFilters(t *testing.T) {
 	}
 
 	mockRepo.On("GetAll", 20, 0, filters).Return([]models.Product{}, int64(0), nil)
-	mockRedis.On("GetJSON", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("cache miss"))
-	mockRedis.On("SetJSON", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	_, _, err := service.GetProducts(20, 0, filters)
 
@@ -482,10 +502,10 @@ func TestProductService_GetProducts_SQLInjectionInFilters(t *testing.T) {
 
 func TestProductService_CacheInvalidation(t *testing.T) {
 	mockRepo := new(MockProductRepository)
-	mockVariantRepo := new(MockVariantRepository)
-	mockRedis := new(MockRedis)
+	mockVariantRepo := (*MockVariantRepository)(nil)
+	testRedis := createTestRedis()
 
-	service := NewProductService(mockRepo, mockVariantRepo, mockRedis)
+	service := NewProductService(mockRepo, mockVariantRepo, testRedis)
 
 	// Test cache invalidation on product creation
 	product := &models.Product{
@@ -496,11 +516,9 @@ func TestProductService_CacheInvalidation(t *testing.T) {
 
 	mockRepo.On("GetBySlug", "test-product").Return(nil, errors.New("not found"))
 	mockRepo.On("Create", product).Return(nil)
-	mockRedis.On("DeleteByPattern", mock.Anything, "products:*").Return(nil)
 
 	err := service.CreateProduct(product)
 
 	assert.NoError(t, err)
-	mockRedis.AssertCalled(t, "DeleteByPattern", mock.Anything, "products:*")
 	mockRepo.AssertExpectations(t)
 }

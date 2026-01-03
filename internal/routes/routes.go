@@ -21,6 +21,52 @@ func RegisterRoutes(app *fiber.App,
 	swaggerHandler *handlers.SwaggerHandler) {
 
 	// ===================================================================
+	// CSRF PROTECTION MIDDLEWARE
+	// ===================================================================
+
+	// Apply CSRF middleware globally with excluded paths
+	csrfConfig := middleware.CSRFConfig{
+		KeyLookup:      "header:X-CSRF-Token",
+		CookieName:     "csrf_token",
+		CookieSecure:   true,
+		CookieHTTPOnly: false,
+		CookieSameSite: "Strict",
+		Expiration:     24 * 60 * 60, // 24 hours
+		ContextKey:     "token",
+		Next: func(c *fiber.Ctx) bool {
+			// Skip CSRF for public endpoints and safe methods
+			excludedPaths := []string{
+				"/api/v1/health",
+				"/swagger",
+				"/api/v1/pricing",
+				"/api/v1/products",
+				"/api/v1/variants",
+				"/api/v1/categories",
+				"/api/v1/shipping",
+				"/api/v1/orders/track",
+				"/api/v1/whatsapp/webhook",
+				"/api/v1/whatsapp/status",
+				"/api/v1/whatsapp/webhook-url",
+			}
+
+			// Skip safe methods
+			if c.Method() == "GET" || c.Method() == "HEAD" || c.Method() == "OPTIONS" || c.Method() == "TRACE" {
+				return true
+			}
+
+			// Skip excluded paths
+			for _, path := range excludedPaths {
+				if len(c.Path()) >= len(path) && c.Path()[:len(path)] == path {
+					return true
+				}
+			}
+
+			return false
+		},
+	}
+	app.Use(middleware.CSRF(csrfConfig))
+
+	// ===================================================================
 	// PUBLIC ENDPOINTS (No Authentication Required)
 	// ===================================================================
 
@@ -171,3 +217,4 @@ func RegisterRoutes(app *fiber.App,
 	// app.Put("/api/v1/checkout/:id/deliver", auth.ValidateToken(), auth.RequireAdmin(), checkoutHandler.DeliverOrder)
 	// app.Put("/api/v1/checkout/:id/refund", auth.ValidateToken(), auth.RequireAdmin(), checkoutHandler.RefundOrder)
 }
+

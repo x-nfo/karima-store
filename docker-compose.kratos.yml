@@ -15,6 +15,7 @@ services:
     image: oryd/kratos:v1.1.0
     depends_on:
       - kratos-migrate
+      - mailslurper
     ports:
       - '4433:4433' # Public
       - '4434:4434' # Admin
@@ -44,7 +45,8 @@ services:
   mailslurper:
     image: oryd/mailslurper:latest-smtps
     ports:
-      - '4436:4436'
+      - '4438:4436'
       - '4437:4437'
+      - '2500:2500'
     networks:
       - default

@@ -3,28 +3,28 @@ package config
 // TestConfig returns a test configuration for unit tests
 func TestConfig() *Config {
 	return &Config{
-		AppEnv:          "test",
-		AppPort:         "8080",
-		DBHost:          "localhost",
-		DBPort:          "5432",
-		DBUser:          "test_user",
-		DBPassword:      "test_password",
-		DBName:          "karima_store_test",
-		RedisHost:       "localhost",
-		RedisPort:       "6379",
-		RedisPassword:   "",
-		KratosPublicURL: "http://localhost:4433",
-		KratosAdminURL:  "http://localhost:4434",
-		FileStorage:     "local",
-		RateLimitLimit:  "100",
-		RateLimitWindow: "1m",
-		R2AccountID:     "",
-		R2AccessKeyID:   "",
+		AppEnv:            "test",
+		AppPort:           "8080",
+		DBHost:            "localhost",
+		DBPort:            "5432",
+		DBUser:            "test_user",
+		DBPassword:        "test_password",
+		DBName:            "karima_store_test",
+		RedisHost:         "localhost",
+		RedisPort:         "6379",
+		RedisPassword:     "",
+		KratosPublicURL:   "http://localhost:4433",
+		KratosAdminURL:    "http://localhost:4434",
+		FileStorage:       "local",
+		RateLimitLimit:    "100",
+		RateLimitWindow:   "1m",
+		R2AccountID:       "",
+		R2AccessKeyID:     "",
 		R2SecretAccessKey: "",
-		R2BucketName:    "",
-		R2PublicURL:     "",
-		R2Region:        "",
-		JWTSecret:       "test-secret-key-for-testing-only",
+		R2BucketName:      "",
+		R2PublicURL:       "",
+		R2Region:          "",
+		JWTSecret:         "test-secret-key-for-testing-only",
 	}
 }
 
@@ -32,7 +32,7 @@ func TestConfig() *Config {
 func TestConfigWithRedis() *Config {
 	cfg := TestConfig()
 	cfg.RedisHost = "localhost"
-	cfg.RedisPort = "6379"
+	cfg.RedisPort = "6380"
 	return cfg
 }
 

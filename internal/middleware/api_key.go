@@ -6,10 +6,11 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"github.com/karima-store/internal/errors"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/karima-store/internal/errors"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -42,19 +43,19 @@ func DefaultAPIKeyConfig() APIKeyConfig {
 
 // APIKeyInfo holds information about an API key
 type APIKeyInfo struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	KeyHash     string    `json:"key_hash"`
-	Prefix      string    `json:"prefix"`
-	Version     int       `json:"version"`
-	IsActive    bool      `json:"is_active"`
-	Scopes      []string  `json:"scopes"`
-	CreatedAt   time.Time `json:"created_at"`
-	ExpiresAt   time.Time `json:"expires_at"`
-	RotatedAt   time.Time `json:"rotated_at"`
-	LastUsedAt  time.Time `json:"last_used_at"`
-	CreatedBy   string    `json:"created_by"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	ID         string                 `json:"id"`
+	Name       string                 `json:"name"`
+	KeyHash    string                 `json:"key_hash"`
+	Prefix     string                 `json:"prefix"`
+	Version    int                    `json:"version"`
+	IsActive   bool                   `json:"is_active"`
+	Scopes     []string               `json:"scopes"`
+	CreatedAt  time.Time              `json:"created_at"`
+	ExpiresAt  time.Time              `json:"expires_at"`
+	RotatedAt  time.Time              `json:"rotated_at"`
+	LastUsedAt time.Time              `json:"last_used_at"`
+	CreatedBy  string                 `json:"created_by"`
+	Metadata   map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // APIKeyManager manages API keys
@@ -146,17 +147,17 @@ func (m *APIKeyManager) GenerateKey(name string, scopes []string, createdBy stri
 
 	// Create key info
 	keyInfo := &APIKeyInfo{
-		ID:         keyID,
-		Name:       name,
-		KeyHash:    keyHash,
-		Prefix:     m.config.KeyPrefix,
-		Version:    1,
-		IsActive:   true,
-		Scopes:     scopes,
-		CreatedAt:  time.Now(),
-		ExpiresAt:  time.Now().Add(m.config.KeyExpiration),
-		CreatedBy:  createdBy,
-		Metadata:   make(map[string]interface{}),
+		ID:        keyID,
+		Name:      name,
+		KeyHash:   keyHash,
+		Prefix:    m.config.KeyPrefix,
+		Version:   1,
+		IsActive:  true,
+		Scopes:    scopes,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(m.config.KeyExpiration),
+		CreatedBy: createdBy,
+		Metadata:  make(map[string]interface{}),
 	}
 
 	// Store key
@@ -246,18 +247,18 @@ func (m *APIKeyManager) RotateKey(keyID string) (string, *APIKeyInfo, error) {
 
 	// Create new key info
 	newKeyInfo := &APIKeyInfo{
-		ID:         keyID,
-		Name:       currentKeyInfo.Name,
-		KeyHash:    newHash,
-		Prefix:     m.config.KeyPrefix,
-		Version:    currentKeyInfo.Version + 1,
-		IsActive:   true,
-		Scopes:     currentKeyInfo.Scopes,
-		CreatedAt:  time.Now(),
-		ExpiresAt:  time.Now().Add(m.config.KeyExpiration),
-		RotatedAt:  time.Now(),
-		CreatedBy:  currentKeyInfo.CreatedBy,
-		Metadata:   currentKeyInfo.Metadata,
+		ID:        keyID,
+		Name:      currentKeyInfo.Name,
+		KeyHash:   newHash,
+		Prefix:    m.config.KeyPrefix,
+		Version:   currentKeyInfo.Version + 1,
+		IsActive:  true,
+		Scopes:    currentKeyInfo.Scopes,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(m.config.KeyExpiration),
+		RotatedAt: time.Now(),
+		CreatedBy: currentKeyInfo.CreatedBy,
+		Metadata:  currentKeyInfo.Metadata,
 	}
 
 	// Store new key
@@ -349,13 +350,13 @@ func APIKeyAuth(manager *APIKeyManager, config APIKeyConfig) fiber.Handler {
 		}
 
 		if apiKey == "" {
-			return errors.NewUnauthorizedError("API key is required")
+			return fiber.NewError(fiber.StatusUnauthorized, "API key is required")
 		}
 
 		// Validate API key
 		keyInfo, err := manager.ValidateKey(apiKey)
 		if err != nil {
-			return err
+			return fiber.NewError(fiber.StatusUnauthorized, err.Error())
 		}
 
 		// Store key info in context
@@ -373,12 +374,12 @@ func RequireScope(requiredScopes ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		keyScopes := c.Locals("api_key_scopes")
 		if keyScopes == nil {
-			return errors.NewForbiddenError("No API key scopes found")
+			return fiber.NewError(fiber.StatusForbidden, "No API key scopes found")
 		}
 
 		scopes, ok := keyScopes.([]string)
 		if !ok {
-			return errors.NewForbiddenError("Invalid API key scopes")
+			return fiber.NewError(fiber.StatusForbidden, "Invalid API key scopes")
 		}
 
 		// Check if all required scopes are present
@@ -391,7 +392,7 @@ func RequireScope(requiredScopes ...string) fiber.Handler {
 				}
 			}
 			if !found {
-				return errors.NewForbiddenError(fmt.Sprintf("Missing required scope: %s", required))
+				return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("Missing required scope: %s", required))
 			}
 		}
 
