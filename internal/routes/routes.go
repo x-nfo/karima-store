@@ -9,6 +9,7 @@ import (
 // RegisterRoutes registers all application routes with proper authentication
 func RegisterRoutes(app *fiber.App,
 	auth middleware.KratosMiddleware,
+	authHandler *handlers.AuthHandler,
 	productHandler *handlers.ProductHandler,
 	variantHandler *handlers.VariantHandler,
 	categoryHandler *handlers.CategoryHandler,
@@ -119,6 +120,16 @@ func RegisterRoutes(app *fiber.App,
 	app.Get("/api/v1/whatsapp/webhook-url", whatsappHandler.GetWhatsAppWebhookURL)
 
 	// ===================================================================
+	// AUTH ROUTES
+	// ===================================================================
+
+	// Auth endpoints (some are public redirects, some protected)
+	app.Get("/api/v1/auth/register", authHandler.Register)
+	app.Get("/api/v1/auth/login", authHandler.Login)
+	app.Get("/api/v1/auth/logout", authHandler.Logout)
+	app.Get("/api/v1/auth/me", auth.ValidateToken(), authHandler.Me) // Protected
+
+	// ===================================================================
 	// AUTHENTICATED USER ENDPOINTS (Requires valid Kratos session)
 	// ===================================================================
 
@@ -217,4 +228,3 @@ func RegisterRoutes(app *fiber.App,
 	// app.Put("/api/v1/checkout/:id/deliver", auth.ValidateToken(), auth.RequireAdmin(), checkoutHandler.DeliverOrder)
 	// app.Put("/api/v1/checkout/:id/refund", auth.ValidateToken(), auth.RequireAdmin(), checkoutHandler.RefundOrder)
 }
-

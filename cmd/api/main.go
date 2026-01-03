@@ -123,6 +123,7 @@ func main() {
 	mediaRepo := repository.NewMediaRepository(db.DB())
 	orderRepo := repository.NewOrderRepository(db.DB())
 	stockLogRepo := repository.NewStockLogRepository(db.DB())
+	userRepo := repository.NewUserRepository(db.DB())
 
 	// Initialize services
 	productService := services.NewProductService(productRepo, variantRepo, redis)
@@ -132,6 +133,7 @@ func main() {
 	pricingService := services.NewPricingService(productRepo, variantRepo, flashSaleRepo, couponRepo, shippingZoneRepo)
 	mediaService := services.NewMediaService(mediaRepo, productRepo, cfg)
 	notificationService := services.NewNotificationService(db, redis, cfg)
+	authService := services.NewAuthService(userRepo)
 
 	// Initialize Komerce client
 	komerceClient := komerce.NewClient(cfg.KomerceAPIKey, cfg.KomerceBaseURL)
@@ -168,11 +170,13 @@ func main() {
 	orderHandler := handlers.NewOrderHandler(orderService) // Added OrderHandler
 	whatsappHandler := handlers.NewWhatsAppHandler(notificationService)
 	swaggerHandler := handlers.NewSwaggerHandler()
+	authHandler := handlers.NewAuthHandler(authService, cfg)
 
 	// Register routes
 	routes.RegisterRoutes(
 		app,
 		authMiddleware,
+		authHandler,
 		productHandler,
 		variantHandler,
 		categoryHandler,
