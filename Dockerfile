@@ -19,6 +19,6 @@ COPY --from=builder /app/main .
 # Copy folder migrations (Penting untuk auto-migrate)
 COPY --from=builder /app/migrations ./migrations
 # Copy .env jika diperlukan (opsional, biasanya via env_file di compose)
-COPY .env .
+# COPY .env .  <-- Removed: Use environment variables instead
 EXPOSE 8080
 CMD ["./main"]
