@@ -43,12 +43,15 @@ services:
   # ORY KRATOS (Authentication)
   # ==========================================
   kratos-migrate:
-    image: oryd/kratos:v1.1.0
+    build:
+      context: ./deploy/kratos
+      dockerfile: Dockerfile
+    image: karima_store_kratos:latest
     container_name: kratos_migrate
     environment:
       - DSN=postgres://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT:-5432}/${DB_NAME}?sslmode=disable&max_conns=20&max_idle_conns=4
-    volumes:
-      - ./deploy/kratos:/etc/config/kratos
+    # volumes:
+    #   - ./deploy/kratos:/etc/config/kratos
     command: -c /etc/config/kratos/kratos.prod.yml migrate sql -e --yes
     networks:
       - app_network
@@ -57,7 +60,10 @@ services:
         condition: service_healthy
 
   kratos:
-    image: oryd/kratos:v1.1.0
+    build:
+      context: ./deploy/kratos
+      dockerfile: Dockerfile
+    image: karima_store_kratos:latest
     container_name: kratos
     restart: always
     environment:
@@ -70,8 +76,8 @@ services:
       - SECRETS_COOKIE=${SESSION_SECRET}
       - SECRETS_CIPHER=${ENCRYPTION_KEY}
       - COURIER_SMTP_CONNECTION_URI=smtps://${EMAIL_USER}:${EMAIL_PASSWORD}@${EMAIL_HOST}:${EMAIL_PORT}/?skip_ssl_verify=false
-    volumes:
-      - ./deploy/kratos:/etc/config/kratos
+    # volumes:
+    #   - ./deploy/kratos:/etc/config/kratos
     command: serve -c /etc/config/kratos/kratos.prod.yml --watch-courier
     ports:
       - "4433:4433" # Public API
