@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # BACKEND API
+  # ==========================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: karima_store_backend:latest
+    container_name: karima_store_backend
+    restart: always
+    # env_file:
+    #   - .env.production
+    environment:
+      # Load from Portainer Environment variables
+      - DB_HOST=db
+      - REDIS_HOST=redis
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT:-5432}
+      # ... other vars will be loaded from passed env
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kratos:
+        condition: service_started
+    networks:
+      - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================
+  # ORY KRATOS (Authentication)
+  # ==========================================
+  kratos-migrate:
+    image: oryd/kratos:v1.1.0
+    container_name: kratos_migrate
+    environment:
+      - DSN=postgres://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT:-5432}/${DB_NAME}?sslmode=disable&max_conns=20&max_idle_conns=4
+    volumes:
+      - ./deploy/kratos:/etc/config/kratos
+    command: -c /etc/config/kratos/kratos.prod.yml migrate sql -e --yes
+    networks:
+      - app_network
+    depends_on:
+      db:
+        condition: service_healthy
+
+  kratos:
+    image: oryd/kratos:v1.1.0
+    container_name: kratos
+    restart: always
+    environment:
+      - DSN=postgres://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT:-5432}/${DB_NAME}?sslmode=disable&max_conns=20&max_idle_conns=4
+      # Kratos Config Overrides via Env Vars
+      - SERVE_PUBLIC_BASE_URL=${KRATOS_PUBLIC_URL}
+      - SERVE_ADMIN_BASE_URL=${KRATOS_ADMIN_URL}
+      - SELFSERVICE_DEFAULT_BROWSER_RETURN_URL=${KRATOS_UI_URL}/
+      - SELFSERVICE_ALLOWED_RETURN_URLS=${KRATOS_UI_URL}/,https://karimasyari.com/,https://admin.ks-backend.cloud/
+      - SECRETS_COOKIE=${SESSION_SECRET}
+      - SECRETS_CIPHER=${ENCRYPTION_KEY}
+      - COURIER_SMTP_CONNECTION_URI=smtps://${EMAIL_USER}:${EMAIL_PASSWORD}@${EMAIL_HOST}:${EMAIL_PORT}/?skip_ssl_verify=false
+    volumes:
+      - ./deploy/kratos:/etc/config/kratos
+    command: serve -c /etc/config/kratos/kratos.prod.yml --watch-courier
+    ports:
+      - "4433:4433" # Public API
+      - "4434:4434" # Admin API
+    networks:
+      - app_network
+    depends_on:
+      kratos-migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+
+  # ==========================================
+  # DATABASE (PostgreSQL)
+  # ==========================================
+  db:
+    image: postgres:15-alpine
+    container_name: karima_db_prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # REDIS (Cache)
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: karima_redis_prod
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  app_network:
+    external: true
+    name: karima-network
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:

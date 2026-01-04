@@ -18,8 +18,22 @@ __debug_bin
 .env.development
 .env.test
 .env.production
+.env.production.backup
 # BUT keep the example template
 !.env.example
+!.env.production.template
+
+# --- Secrets & Credentials ---
+# Prevent accidental commit of sensitive files
+*credentials*.txt
+*secrets*.txt
+*password*.txt
+*.pem
+*.key
+!deploy/**/*.pem  # Allow example keys in deploy folder if needed
+karima-credentials.txt
+/tmp/karima-secrets-*.txt
+
 
 # --- IDEs & Editors ---
 .vscode/

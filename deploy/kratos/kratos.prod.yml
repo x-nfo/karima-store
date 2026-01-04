@@ -1,0 +1,88 @@
+version: v0.10.1
+
+# DSN, URLs, and Secrets are overridden by Environment Variables in docker-compose.prod.yml
+# This file contains static configuration only.
+
+serve:
+  public:
+    cors:
+      enabled: true
+      # CORS allowed origins cannot be easily overridden by ENV in older versions, 
+      # but we try to keep it generic or rely on Kratos validating the Origin header correctly
+      allowed_origins:
+        - https://karimasyari.com
+        - https://www.karimasyari.com
+        - https://admin.ks-backend.cloud
+        - http://localhost:3000
+      allowed_methods:
+        - POST
+        - GET
+        - PUT
+        - PATCH
+        - DELETE
+      allowed_headers:
+        - Authorization
+        - Cookie
+        - Content-Type
+        - X-Session-Token
+      exposed_headers:
+        - Content-Type
+        - Set-Cookie
+
+selfservice:
+  methods:
+    password:
+      enabled: true
+
+  flows:
+    error:
+      ui_url: /error
+
+    settings:
+      ui_url: /settings
+      privileged_session_max_age: 15m
+
+    recovery:
+      enabled: true
+      ui_url: /recovery
+
+    verification:
+      enabled: true
+      ui_url: /verification
+
+    logout:
+      after:
+        default_browser_return_url: /login
+
+    login:
+      ui_url: /login
+      lifespan: 10m
+
+    registration:
+      lifespan: 10m
+      ui_url: /registration
+      after:
+        password:
+          hooks:
+            - hook: session
+
+# Session configuration
+session:
+  lifespan: 720h # 30 days
+  cookie:
+    domain: karimasyari.com
+    path: /
+    same_site: Lax
+    secure: true
+    name: karima_session
+
+log:
+  level: warn
+  format: json
+  leak_sensitive_values: false
+
+identity:
+  default_schema_id: default
+  schemas:
+    - id: default
+      url: file:///etc/config/kratos/identity.schema.json

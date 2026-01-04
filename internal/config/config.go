@@ -221,9 +221,11 @@ func (c *Config) Validate() {
 	// Validate based on environment
 	if c.AppEnv == "production" {
 		// Production-specific strict validation
-		if c.JWTSecret == "" {
-			errors = append(errors, "JWT_SECRET is required in production")
-		}
+		// Note: JWT_SECRET is optional since we use Ory Kratos for authentication
+		// If you plan to use JWT in the future, uncomment the validation below:
+		// if c.JWTSecret == "" {
+		// 	errors = append(errors, "JWT_SECRET is required in production")
+		// }
 
 		// Validate CORS_ORIGIN is set to specific domains, not wildcard
 		if c.CORSOrigin == "*" || c.CORSOrigin == "" {

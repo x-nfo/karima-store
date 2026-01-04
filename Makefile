@@ -53,3 +53,109 @@ clean:
 swagger:
 	@echo "Generating Swagger documentation..."
 	$(HOME)/go/bin/swag init -g cmd/api/main.go
+
+# --- ENVIRONMENT SETUP ---
+# Generate secure secrets for production
+generate-secrets:
+	@echo "Generating secure secrets..."
+	@chmod +x scripts/generate-env-secrets.sh
+	@./scripts/generate-env-secrets.sh
+
+# Verify environment configuration
+verify-env:
+	@echo "Verifying environment configuration..."
+	@chmod +x scripts/verify-env.sh
+	@./scripts/verify-env.sh .env.production
+
+# Verify local environment
+verify-env-local:
+	@echo "Verifying local environment configuration..."
+	@chmod +x scripts/verify-env.sh
+	@./scripts/verify-env.sh .env.local
+
+# Create production env from template
+setup-prod-env:
+	@echo "Setting up production environment..."
+	@if [ -f .env.production ]; then \
+		echo "⚠ .env.production already exists. Backup created as .env.production.backup"; \
+		cp .env.production .env.production.backup; \
+	fi
+	@cp .env.production.template .env.production
+	@chmod 600 .env.production
+	@echo "✓ Created .env.production from template"
+	@echo "⚠ Please edit .env.production and fill in all required values"
+	@echo "  Then run: make verify-env"
+
+# --- PRODUCTION DEPLOYMENT ---
+# Deploy to production server
+deploy-prod:
+	@echo "Deploying to production..."
+	@make verify-env
+	@echo "✓ Environment verified"
+	@echo "Copying files to production server..."
+	@# Add your deployment commands here
+	@echo "⚠ Configure your deployment commands in Makefile"
+
+# Check production health
+prod-health:
+	@echo "Checking production health..."
+	@curl -f http://localhost:8080/health || echo "⚠ Health check failed"
+
+# View production logs
+prod-logs:
+	@echo "Viewing production logs..."
+	@tail -f logs/app.log
+
+# --- TESTING ---
+# Run all tests
+test:
+	@echo "Running tests..."
+	@go test -v ./...
+
+# Run tests with coverage
+test-coverage:
+	@echo "Running tests with coverage..."
+	@go test -v -coverprofile=coverage.out ./...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "✓ Coverage report generated: coverage.html"
+
+# --- HELP ---
+# Show available commands
+help:
+	@echo "Karima Store - Available Commands:"
+	@echo ""
+	@echo "Development:"
+	@echo "  make dev-local       - Run app locally (DB in Podman)"
+	@echo "  make docker-up       - Run all services in containers"
+	@echo "  make docker-down     - Stop all services"
+	@echo ""
+	@echo "Authentication (Kratos):"
+	@echo "  make kratos-up       - Start Ory Kratos services"
+	@echo "  make kratos-down     - Stop Ory Kratos services"
+	@echo ""
+	@echo "Environment Setup:"
+	@echo "  make generate-secrets    - Generate secure passwords"
+	@echo "  make setup-prod-env      - Create .env.production from template"
+	@echo "  make verify-env          - Verify production environment"
+	@echo "  make verify-env-local    - Verify local environment"
+	@echo ""
+	@echo "Production:"
+	@echo "  make deploy-prod     - Deploy to production"
+	@echo "  make prod-health     - Check production health"
+	@echo "  make prod-logs       - View production logs"
+	@echo ""
+	@echo "Testing:"
+	@echo "  make test            - Run all tests"
+	@echo "  make test-coverage   - Run tests with coverage report"
+	@echo ""
+	@echo "Utilities:"
+	@echo "  make tidy            - Clean up Go modules"
+	@echo "  make db-shell        - Access database shell"
+	@echo "  make logs            - View backend logs"
+	@echo "  make clean           - Clean up Docker images"
+	@echo "  make swagger         - Generate API documentation"
+	@echo ""
+
+.PHONY: dev-local docker-up docker-down kratos-up kratos-down logs tidy db-shell clean swagger \
+        generate-secrets verify-env verify-env-local setup-prod-env deploy-prod prod-health \
+        prod-logs test test-coverage help

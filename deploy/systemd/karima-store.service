@@ -1,0 +1,56 @@
+[Unit]
+Description=Karima Store Backend API
+Documentation=https://github.com/yourusername/karima-store
+After=network.target postgresql.service redis.service
+Wants=postgresql.service redis.service
+
+[Service]
+Type=simple
+User=karima
+Group=karima
+WorkingDirectory=/opt/karima-store
+
+# Environment
+EnvironmentFile=/opt/karima-store/.env.production
+
+# Execution
+ExecStart=/opt/karima-store/karima-store
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Logging
+StandardOutput=append:/opt/karima-store/logs/app.log
+StandardError=append:/opt/karima-store/logs/error.log
+SyslogIdentifier=karima-store
+
+# Security Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/karima-store/logs
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+# Resource Limits
+LimitNOFILE=65536
+LimitNPROC=4096
+TasksMax=4096
+
+# Performance
+CPUQuota=200%
+MemoryMax=2G
+MemoryHigh=1.5G
+
+[Install]
+WantedBy=multi-user.target
