@@ -95,6 +95,20 @@ services:
       - SECRETS_COOKIE=${SESSION_SECRET}
       - SECRETS_CIPHER=${ENCRYPTION_KEY}
       - COURIER_SMTP_CONNECTION_URI=smtps://${EMAIL_USER}:${EMAIL_PASSWORD}@${EMAIL_HOST}:${EMAIL_PORT}/?skip_ssl_verify=false
+      
+      # CORS Configuration
+      - SERVE_PUBLIC_CORS_ENABLED=true
+      - SERVE_PUBLIC_CORS_ALLOWED_ORIGINS=${KRATOS_UI_URL},https://karimasyari.com,https://www.karimasyari.com,https://admin.ks-backend.cloud,http://localhost:3000
+      - SERVE_PUBLIC_CORS_ALLOWED_METHODS=POST,GET,PUT,PATCH,DELETE
+      - SERVE_PUBLIC_CORS_ALLOWED_HEADERS=Authorization,Cookie,Content-Type,X-Session-Token
+      - SERVE_PUBLIC_CORS_EXPOSED_HEADERS=Content-Type,Set-Cookie
+
+      # Cookie Configuration for Cross-Domain (Auth on different domain than UI)
+      - SESSION_COOKIE_SAME_SITE=None
+      - SESSION_COOKIE_SECURE=true
+      # Leave domain empty to default to the auth domain (auth.ks-backend.cloud) which is safer for 3rd party cookies, 
+      # OR explicit to shared parent if available. For now, empty/default is best for cross-site if domains are totally different.
+      - SESSION_COOKIE_DOMAIN=
     # volumes:
     #   - ./deploy/kratos:/etc/config/kratos
     command: serve -c /etc/config/kratos/kratos.prod.yml --watch-courier

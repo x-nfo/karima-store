@@ -70,9 +70,10 @@ selfservice:
 session:
   lifespan: 720h # 30 days
   cookie:
-    domain: karimasyari.com
+    # domain: karimasyari.com # Removed to allow default (host) domain for Cross-Site
     path: /
-    same_site: Lax
+    same_site: None
+    secure: true
     name: karima_session
 
 log:
