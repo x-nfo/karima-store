@@ -1,4 +1,4 @@
-version: v0.10.1
+version: v1.1.0
 
 # DSN, URLs, and Secrets are overridden by Environment Variables in docker-compose.prod.yml
 # This file contains static configuration only.
