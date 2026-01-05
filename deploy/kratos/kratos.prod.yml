@@ -73,7 +73,6 @@ session:
     # domain: karimasyari.com # Removed to allow default (host) domain for Cross-Site
     path: /
     same_site: None
-    secure: true
     name: karima_session
 
 log:
