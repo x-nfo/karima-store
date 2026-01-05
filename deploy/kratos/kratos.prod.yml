@@ -76,7 +76,7 @@ session:
     name: karima_session
 
 log:
-  level: warn
+  level: warning
   format: json
   leak_sensitive_values: false
 

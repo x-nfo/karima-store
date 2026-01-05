@@ -103,9 +103,12 @@ services:
       - "4434:4434" # Admin API
     networks:
       - app_network
+    # depends_on:
+    #   kratos-migrate:
+    #     condition: service_completed_successfully
     depends_on:
-      kratos-migrate:
-        condition: service_completed_successfully
+      # kratos-migrate:
+      #   condition: service_completed_successfully
       db:
         condition: service_healthy
 
