@@ -73,7 +73,6 @@ session:
     domain: karimasyari.com
     path: /
     same_site: Lax
-    secure: true
     name: karima_session
 
 log:
