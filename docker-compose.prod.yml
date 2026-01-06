@@ -2,6 +2,24 @@ version: '3.8'
 
 services:
   # ==========================================
+  # CLOUDFLARE TUNNEL (Ingress)
+  # ==========================================
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: karima_tunnel
+    restart: always
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    networks:
+      - app_network
+    depends_on:
+      backend:
+        condition: service_started
+      kratos:
+        condition: service_started
+
+  # ==========================================
   # BACKEND API
   # ==========================================
   backend:
@@ -91,7 +109,7 @@ services:
       - SERVE_PUBLIC_BASE_URL=${KRATOS_PUBLIC_URL}
       - SERVE_ADMIN_BASE_URL=${KRATOS_ADMIN_URL}
       - SELFSERVICE_DEFAULT_BROWSER_RETURN_URL=${KRATOS_UI_URL}/
-      - SELFSERVICE_ALLOWED_RETURN_URLS=${KRATOS_UI_URL}/,https://karimasyari.com/,https://admin.ks-backend.cloud/
+      - SELFSERVICE_ALLOWED_RETURN_URLS=${KRATOS_UI_URL}/,https://karimasyari.com/,https://www.karimasyari.com/,https://admin.karimasyari.com/
       - SECRETS_COOKIE=${SESSION_SECRET}
       - SECRETS_CIPHER=${ENCRYPTION_KEY}
       - COURIER_SMTP_CONNECTION_URI=smtps://${EMAIL_USER}:${EMAIL_PASSWORD}@${EMAIL_HOST}:${EMAIL_PORT}/?skip_ssl_verify=false
@@ -100,9 +118,10 @@ services:
     # volumes:
     #   - ./deploy/kratos:/etc/config/kratos
     command: serve -c /etc/config/kratos/kratos.prod.yml --watch-courier
-    ports:
-      - "4433:4433" # Public API
-      - "4434:4434" # Admin API
+    # Ports NOT exposed publicly - accessed via Tunnel
+    expose:
+      - "4433" # Public API
+      - "4434" # Admin API
     networks:
       - app_network
     # depends_on:
@@ -153,6 +172,55 @@ services:
       timeout: 5s
       retries: 5
 
+  # ==========================================
+  # MONITORING STACK
+  # ==========================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: monitoring_prometheus
+    restart: always
+    volumes:
+      - ./deploy/monitoring/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - app_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: monitoring_grafana
+    restart: always
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./deploy/monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    networks:
+      - app_network
+    depends_on:
+      - prometheus
+
+  node_exporter:
+    image: prom/node-exporter:latest
+    container_name: monitoring_node_exporter
+    restart: always
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - app_network
+
 networks:
   app_network:
     external: true
@@ -161,3 +229,5 @@ networks:
 volumes:
   postgres_prod_data:
   redis_prod_data:
+  prometheus_data:
+  grafana_data:
