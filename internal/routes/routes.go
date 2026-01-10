@@ -8,7 +8,7 @@ import (
 
 // RegisterRoutes registers all application routes with proper authentication
 func RegisterRoutes(app *fiber.App,
-	auth middleware.KratosMiddleware,
+	auth *middleware.AuthMiddleware,
 	authHandler *handlers.AuthHandler,
 	userHandler *handlers.UserHandler,
 	productHandler *handlers.ProductHandler,
@@ -49,6 +49,8 @@ func RegisterRoutes(app *fiber.App,
 				"/api/v1/whatsapp/webhook",
 				"/api/v1/whatsapp/status",
 				"/api/v1/whatsapp/webhook-url",
+				"/api/v1/auth",                 // Skip CSRF for auth endpoints
+				"/api/v1/auth/google/callback", // Skip CSRF for OAuth callback
 			}
 
 			// Skip safe methods
@@ -124,58 +126,69 @@ func RegisterRoutes(app *fiber.App,
 	// AUTH ROUTES
 	// ===================================================================
 
-	// Auth endpoints (some are public redirects, some protected)
-	app.Get("/api/v1/auth/register", authHandler.Register)
-	app.Get("/api/v1/auth/login", authHandler.Login)
+	// Auth endpoints
+	app.Post("/api/v1/auth/register", authHandler.Register)
+	app.Post("/api/v1/auth/login", authHandler.Login)
 	app.Get("/api/v1/auth/logout", authHandler.Logout)
-	app.Get("/api/v1/auth/me", auth.ValidateToken(), authHandler.Me) // Protected
+
+	app.Get("/api/v1/auth/me", auth.Protected(), authHandler.Me) // Protected
+
+	// OAuth Routes (Handled via Goth w/ params if needed, or define specific provider routes)
+	// Using goth_fiber, we usually intercept before handler or use handler wrapper.
+	// For simplicity, we define them here and handle in main/handler interactions
+	app.Get("/api/v1/auth/:provider", authHandler.OAuthLogin)
+	app.Get("/api/v1/auth/:provider/callback", authHandler.OAuthCallback)
+
+	// ===================================================================
+	// USER MANAGEMENT ENDPOINTS (Admin only)
+	// ===================================================================
 
 	// ===================================================================
 	// USER MANAGEMENT ENDPOINTS (Admin only)
 	// ===================================================================
 
 	// User management (Admin only)
-	app.Get("/api/v1/users", auth.ValidateToken(), auth.RequireAdmin(), userHandler.GetUsers)
-	app.Get("/api/v1/users/stats", auth.ValidateToken(), auth.RequireAdmin(), userHandler.GetUserStats)
-	app.Get("/api/v1/users/me", auth.ValidateToken(), userHandler.GetCurrentUser) // Any authenticated user
-	app.Get("/api/v1/users/:id", auth.ValidateToken(), auth.RequireAdmin(), userHandler.GetUser)
-	app.Put("/api/v1/users/:id/role", auth.ValidateToken(), auth.RequireAdmin(), userHandler.UpdateUserRole)
-	app.Put("/api/v1/users/:id/deactivate", auth.ValidateToken(), auth.RequireAdmin(), userHandler.DeactivateUser)
-	app.Put("/api/v1/users/:id/activate", auth.ValidateToken(), auth.RequireAdmin(), userHandler.ActivateUser)
+	app.Get("/api/v1/users", auth.Protected(), auth.RequireRole("admin"), userHandler.GetUsers)
+	app.Get("/api/v1/users/stats", auth.Protected(), auth.RequireRole("admin"), userHandler.GetUserStats)
+	app.Get("/api/v1/users/me", auth.Protected(), userHandler.GetCurrentUser) // Any authenticated user
+	app.Get("/api/v1/users/:id", auth.Protected(), auth.RequireRole("admin"), userHandler.GetUser)
+	app.Put("/api/v1/users/:id/role", auth.Protected(), auth.RequireRole("admin"), userHandler.UpdateUserRole)
+	app.Put("/api/v1/users/:id/deactivate", auth.Protected(), auth.RequireRole("admin"), userHandler.DeactivateUser)
+	app.Put("/api/v1/users/:id/activate", auth.Protected(), auth.RequireRole("admin"), userHandler.ActivateUser)
 
 	// ===================================================================
-	// AUTHENTICATED USER ENDPOINTS (Requires valid Kratos session)
+	// AUTHENTICATED USER ENDPOINTS (Requires valid session)
 	// ===================================================================
 
 	// Checkout (Authenticated users)
-	app.Post("/api/v1/checkout", auth.ValidateToken(), checkoutHandler.Checkout)
+	app.Post("/api/v1/checkout", auth.Protected(), checkoutHandler.Checkout)
 
 	// Order management (Authenticated users - own orders only)
-	app.Get("/api/v1/orders", auth.ValidateToken(), orderHandler.GetOrders)
-	app.Get("/api/v1/orders/:id", auth.ValidateToken(), orderHandler.GetOrder)
+	app.Get("/api/v1/orders", auth.Protected(), orderHandler.GetOrders)
+	app.Get("/api/v1/orders/:id", auth.Protected(), orderHandler.GetOrder)
 
 	// ===================================================================
 	// ADMIN ONLY ENDPOINTS (Requires admin role)
 	// ===================================================================
 
 	// Product management (Admin only)
-	app.Post("/api/v1/products", auth.ValidateToken(), auth.RequireAdmin(), productHandler.CreateProduct)
-	app.Put("/api/v1/products/:id", auth.ValidateToken(), auth.RequireAdmin(), productHandler.UpdateProduct)
-	app.Delete("/api/v1/products/:id", auth.ValidateToken(), auth.RequireAdmin(), productHandler.DeleteProduct)
-	app.Patch("/api/v1/products/:id/stock", auth.ValidateToken(), auth.RequireAdmin(), productHandler.UpdateProductStock)
-	app.Post("/api/v1/products/:id/media", auth.ValidateToken(), auth.RequireAdmin(), productHandler.UploadProductMedia)
+	app.Post("/api/v1/products", auth.Protected(), auth.RequireRole("admin"), productHandler.CreateProduct)
+	app.Put("/api/v1/products/:id", auth.Protected(), auth.RequireRole("admin"), productHandler.UpdateProduct)
+	app.Delete("/api/v1/products/:id", auth.Protected(), auth.RequireRole("admin"), productHandler.DeleteProduct)
+	app.Patch("/api/v1/products/:id/stock", auth.Protected(), auth.RequireRole("admin"), productHandler.UpdateProductStock)
+	app.Post("/api/v1/products/:id/media", auth.Protected(), auth.RequireRole("admin"), productHandler.UploadProductMedia)
 
 	// Variant management (Admin only)
-	app.Post("/api/v1/variants", auth.ValidateToken(), auth.RequireAdmin(), variantHandler.CreateVariant)
-	app.Put("/api/v1/variants/:id", auth.ValidateToken(), auth.RequireAdmin(), variantHandler.UpdateVariant)
-	app.Delete("/api/v1/variants/:id", auth.ValidateToken(), auth.RequireAdmin(), variantHandler.DeleteVariant)
-	app.Patch("/api/v1/variants/:id/stock", auth.ValidateToken(), auth.RequireAdmin(), variantHandler.UpdateVariantStock)
+	app.Post("/api/v1/variants", auth.Protected(), auth.RequireRole("admin"), variantHandler.CreateVariant)
+	app.Put("/api/v1/variants/:id", auth.Protected(), auth.RequireRole("admin"), variantHandler.UpdateVariant)
+	app.Delete("/api/v1/variants/:id", auth.Protected(), auth.RequireRole("admin"), variantHandler.DeleteVariant)
+	app.Patch("/api/v1/variants/:id/stock", auth.Protected(), auth.RequireRole("admin"), variantHandler.UpdateVariantStock)
 
 	// WhatsApp admin operations (Admin only)
-	app.Post("/api/v1/whatsapp/send", auth.ValidateToken(), auth.RequireAdmin(), whatsappHandler.SendWhatsAppMessage)
-	app.Get("/api/v1/whatsapp/order-created/:order_id", auth.ValidateToken(), auth.RequireAdmin(), whatsappHandler.SendOrderCreatedNotification)
-	app.Get("/api/v1/whatsapp/payment-success/:order_id", auth.ValidateToken(), auth.RequireAdmin(), whatsappHandler.SendPaymentSuccessNotification)
-	app.Post("/api/v1/whatsapp/test", auth.ValidateToken(), auth.RequireAdmin(), whatsappHandler.SendTestWhatsAppMessage)
+	app.Post("/api/v1/whatsapp/send", auth.Protected(), auth.RequireRole("admin"), whatsappHandler.SendWhatsAppMessage)
+	app.Get("/api/v1/whatsapp/order-created/:order_id", auth.Protected(), auth.RequireRole("admin"), whatsappHandler.SendOrderCreatedNotification)
+	app.Get("/api/v1/whatsapp/payment-success/:order_id", auth.Protected(), auth.RequireRole("admin"), whatsappHandler.SendPaymentSuccessNotification)
+	app.Post("/api/v1/whatsapp/test", auth.Protected(), auth.RequireRole("admin"), whatsappHandler.SendTestWhatsAppMessage)
 
 	// ===================================================================
 	// COMMENTED OUT / FUTURE ENDPOINTS

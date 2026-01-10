@@ -85,10 +85,10 @@ type Config struct {
 	// JWT
 	JWTSecret string
 
-	// Ory Kratos
-	KratosPublicURL string
-	KratosAdminURL  string
-	KratosUIURL     string
+	// OAuth
+	GoogleKey    string
+	GoogleSecret string
+	CallbackURL  string
 }
 
 func Load() *Config {
@@ -177,10 +177,10 @@ func Load() *Config {
 		// JWT
 		JWTSecret: getEnv("JWT_SECRET", ""),
 
-		// Ory Kratos
-		KratosPublicURL: getEnv("KRATOS_PUBLIC_URL", "http://127.0.0.1:4433"),
-		KratosAdminURL:  getEnv("KRATOS_ADMIN_URL", "http://127.0.0.1:4434"),
-		KratosUIURL:     getEnv("KRATOS_UI_URL", "http://127.0.0.1:4455"),
+		// OAuth
+		GoogleKey:    getEnv("GOOGLE_KEY", ""),
+		GoogleSecret: getEnv("GOOGLE_SECRET", ""),
+		CallbackURL:  getEnv("CALLBACK_URL", "http://localhost:8080/api/v1/auth/google/callback"),
 	}
 }
 

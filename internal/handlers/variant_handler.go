@@ -158,8 +158,7 @@ func (h *VariantHandler) GetVariantsByProductID(c *fiber.Ctx) error {
 // @Tags variants
 // @Accept json
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
 // @Param id path int true "Variant ID"
 // @Param variant body models.ProductVariant true "Variant object"
 // @Success 200 {object} map[string]interface{}
@@ -217,8 +216,7 @@ func (h *VariantHandler) UpdateVariant(c *fiber.Ctx) error {
 // @Description Delete a variant by ID. **Admin only**: Requires authentication with admin role.
 // @Tags variants
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
 // @Param id path int true "Variant ID"
 // @Success 200 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
@@ -256,8 +254,8 @@ func (h *VariantHandler) DeleteVariant(c *fiber.Ctx) error {
 // @Tags variants
 // @Accept json
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
+// 
 // @Param id path int true "Variant ID"
 // @Param body body map[string]int true "Stock update object"
 // @Success 200 {object} map[string]interface{}

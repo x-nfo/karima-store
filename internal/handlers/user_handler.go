@@ -27,7 +27,7 @@ func NewUserHandler(userService services.UserService) *UserHandler {
 // @Produce json
 // @Param limit query int false "Limit" default(20)
 // @Param offset query int false "Offset" default(0)
-// @Security KratosSession
+// @Security BearerAuth []
 // @Success 200 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
 // @Failure 403 {object} map[string]interface{}
@@ -58,7 +58,7 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "User ID"
-// @Security KratosSession
+// @Security BearerAuth []
 // @Success 200 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
 // @Failure 403 {object} map[string]interface{}
@@ -88,7 +88,7 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Security KratosSession
+// @Security BearerAuth []
 // @Success 200 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
 // @Router /users/me [get]
@@ -112,7 +112,7 @@ func (h *UserHandler) GetCurrentUser(c *fiber.Ctx) error {
 // @Produce json
 // @Param id path int true "User ID"
 // @Param body body map[string]string true "Role update request"
-// @Security KratosSession
+// @Security BearerAuth []
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
@@ -150,7 +150,7 @@ func (h *UserHandler) UpdateUserRole(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "User ID"
-// @Security KratosSession
+// @Security BearerAuth []
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
@@ -179,7 +179,7 @@ func (h *UserHandler) DeactivateUser(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "User ID"
-// @Security KratosSession
+// @Security BearerAuth []
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
@@ -207,7 +207,7 @@ func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Security KratosSession
+// @Security BearerAuth []
 // @Success 200 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
 // @Failure 403 {object} map[string]interface{}

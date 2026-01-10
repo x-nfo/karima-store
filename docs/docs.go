@@ -23,6 +23,215 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/auth/login": {
+            "post": {
+                "description": "Login with email and password to get JWT token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Login user",
+                "parameters": [
+                    {
+                        "description": "Login Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/logout": {
+            "post": {
+                "description": "Clear the JWT cookie",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the profile of the currently authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Get current user profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/register": {
+            "post": {
+                "description": "Register a new user with email, password, and full name",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Register a new user",
+                "parameters": [
+                    {
+                        "description": "Registration Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/{provider}": {
+            "get": {
+                "description": "Initiate OAuth login with a provider (e.g., google)",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Initiate OAuth login",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OAuth Provider (google)",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Found"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/{provider}/callback": {
+            "get": {
+                "description": "Callback endpoint for OAuth providers",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "OAuth Callback",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OAuth Provider",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/categories": {
             "get": {
                 "description": "Retrieve all available product categories",
@@ -141,14 +350,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
-                            ""
-                        ]
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Creates a new order with items, calculates pricing including shipping and tax, then generates Midtrans Snap payment token. Returns order details and payment URL.",
@@ -189,7 +391,7 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized: No valid session or session expired",
+                        "description": "Unauthorized: No valid JWT token",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -329,12 +531,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -440,12 +637,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -969,12 +1161,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -1428,12 +1615,7 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -1515,12 +1697,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -1630,12 +1807,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -1729,12 +1901,7 @@ const docTemplate = `{
             "patch": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -2114,12 +2281,7 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -2201,12 +2363,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -2271,12 +2428,7 @@ const docTemplate = `{
             "patch": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -2356,12 +2508,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -2436,12 +2583,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -2516,12 +2658,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -2629,12 +2766,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "KratosSession ": [
-                            ""
-                        ]
-                    },
-                    {
-                        "KratosSessionCookie ": [
+                        "BearerAuth ": [
                             ""
                         ]
                     }
@@ -3021,6 +3153,427 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/users": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Get list of all users (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get all users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/users/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Get current user's profile",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get current authenticated user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/users/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Get user statistics (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get user statistics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Get user details by ID (admin or self)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get user by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/activate": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Activate a user account (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Activate user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/deactivate": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Deactivate a user account (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Deactivate user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/role": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth ": [
+                            ""
+                        ]
+                    }
+                ],
+                "description": "Update a user's role (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Update user role",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Role update request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -3049,6 +3602,17 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.LoginRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
         "handlers.OrderSummaryRequest": {
             "type": "object",
             "properties": {
@@ -3069,6 +3633,20 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "handlers.RegisterRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
                 }
             }
         },
@@ -3290,13 +3868,6 @@ const docTemplate = `{
                 "name": {
                     "description": "Basic Information",
                     "type": "string"
-                },
-                "products": {
-                    "description": "Relations",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.Product"
-                    }
                 },
                 "start_time": {
                     "description": "Timing",
@@ -3869,6 +4440,10 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "is_featured": {
+                    "description": "Featured",
+                    "type": "boolean"
+                },
                 "material": {
                     "type": "string"
                 },
@@ -3991,12 +4566,16 @@ const docTemplate = `{
             "enum": [
                 "available",
                 "out_of_stock",
-                "discontinued"
+                "discontinued",
+                "unavailable",
+                "draft"
             ],
             "x-enum-varnames": [
                 "StatusAvailable",
                 "StatusOutOfStock",
-                "StatusDiscontinued"
+                "StatusDiscontinued",
+                "StatusUnavailable",
+                "StatusDraft"
             ]
         },
         "models.ProductVariant": {
@@ -4326,16 +4905,10 @@ const docTemplate = `{
         }
     },
     "securityDefinitions": {
-        "KratosSession": {
-            "description": "Ory Kratos session token (Bearer token or X-Session-Token header)",
+        "BearerAuth": {
+            "description": "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
             "type": "apiKey",
             "name": "Authorization",
-            "in": "header"
-        },
-        "KratosSessionCookie": {
-            "description": "Ory Kratos session cookie (ory_kratos_session)",
-            "type": "apiKey",
-            "name": "Cookie",
             "in": "header"
         }
     }
@@ -4348,7 +4921,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "Karima Store API",
-	Description:      "Karima Store E-commerce API with Ory Kratos Authentication\n\n## Authentication\n\nThis API uses **Ory Kratos** for session-based authentication.\n\n### For Web/Browser Clients:\n1. Login via Kratos UI at http://127.0.0.1:4455/login\n2. Session cookie (ory_kratos_session) will be set automatically\n3. Make API requests with the cookie included\n\n### For API/Mobile Clients:\n1. Obtain session token from Kratos login flow\n2. Include token in requests:\n- Method 1: Authorization: Bearer <session_token>\n- Method 2: X-Session-Token: <session_token> header\n\n### Authorization Levels:\n- **Public**: No authentication required (GET endpoints for browsing)\n- **Authenticated**: Valid Kratos session required\n- **Admin**: Valid session + admin role in identity traits",
+	Description:      "Karima Store E-commerce API with JWT Authentication\n\n## Authentication\n\nThis API uses **JWT (JSON Web Token)** for authentication.\n\n### For Web/Browser Clients:\n1. Login via /api/v1/auth/login endpoint\n2. Session cookie (jwt) will be set automatically\n3. Make API requests with the cookie included\n\n### For API/Mobile Clients:\n1. Obtain JWT token from /api/v1/auth/login endpoint\n2. Include token in requests:\n- Method 1: Authorization: Bearer <jwt_token>\n- Method 2: X-Session-Token: <jwt_token> header\n\n### Authorization Levels:\n- **Public**: No authentication required (GET endpoints for browsing)\n- **Authenticated**: Valid JWT token required\n- **Admin**: Valid JWT token + admin role",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

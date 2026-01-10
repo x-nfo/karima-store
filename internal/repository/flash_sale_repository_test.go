@@ -15,10 +15,7 @@ import (
 func setupFlashSaleTest(t *testing.T) (*gorm.DB, *models.Product, func()) {
 	db, cleanup := test_setup.SetupTestDB(t)
 
-	// Migrate flash sale tables
-	db.AutoMigrate(&models.FlashSale{}, &models.FlashSaleProduct{})
-
-	// Clean up any existing data
+	// Clean up any existing data first
 	db.Exec("DELETE FROM flash_sale_products")
 	db.Exec("DELETE FROM flash_sales")
 	db.Exec("DELETE FROM products")

@@ -21,31 +21,34 @@ import (
 	"github.com/karima-store/internal/routes"
 	"github.com/karima-store/internal/services"
 	"github.com/karima-store/internal/utils"
+
+	"github.com/markbates/goth"
+	"github.com/markbates/goth/providers/google"
 )
 
 // @title Karima Store API
 // @version 1.0
-// @description Karima Store E-commerce API with Ory Kratos Authentication
+// @description Karima Store E-commerce API with JWT Authentication
 // @description
 // @description ## Authentication
 // @description
-// @description This API uses **Ory Kratos** for session-based authentication.
+// @description This API uses **JWT (JSON Web Token)** for authentication.
 // @description
 // @description ### For Web/Browser Clients:
-// @description 1. Login via Kratos UI at http://127.0.0.1:4455/login
-// @description 2. Session cookie (ory_kratos_session) will be set automatically
+// @description 1. Login via /api/v1/auth/login endpoint
+// @description 2. Session cookie (jwt) will be set automatically
 // @description 3. Make API requests with the cookie included
 // @description
 // @description ### For API/Mobile Clients:
-// @description 1. Obtain session token from Kratos login flow
+// @description 1. Obtain JWT token from /api/v1/auth/login endpoint
 // @description 2. Include token in requests:
-// @description    - Method 1: Authorization: Bearer <session_token>
-// @description    - Method 2: X-Session-Token: <session_token> header
+// @description    - Method 1: Authorization: Bearer <jwt_token>
+// @description    - Method 2: X-Session-Token: <jwt_token> header
 // @description
 // @description ### Authorization Levels:
 // @description - **Public**: No authentication required (GET endpoints for browsing)
-// @description - **Authenticated**: Valid Kratos session required
-// @description - **Admin**: Valid session + admin role in identity traits
+// @description - **Authenticated**: Valid JWT token required
+// @description - **Admin**: Valid JWT token + admin role
 // @termsOfService http://swagger.io/terms/
 // @contact.name Karima Store API Support
 // @contact.email support@karimastore.com
@@ -53,14 +56,10 @@ import (
 // @license.url https://opensource.org/licenses/MIT
 // @host localhost:8080
 // @BasePath /api/v1
-// @securityDefinitions.apikey KratosSession
+// @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
-// @description Ory Kratos session token (Bearer token or X-Session-Token header)
-// @securityDefinitions.apikey KratosSessionCookie
-// @in header
-// @name Cookie
-// @description Ory Kratos session cookie (ory_kratos_session)
+// @description JWT Authorization header using the Bearer scheme. Example: "Authorization: Bearer {token}"
 
 func main() {
 	// Load configuration
@@ -110,7 +109,7 @@ func main() {
 	app.Use(middleware.CORS(cfg.CORSOrigin))
 	app.Use(middleware.NewRateLimiter(cfg))
 
-	// Initialize Ory Kratos middleware for authentication
+	// Initialize JWT authentication middleware
 	// Dependency injection happens later in the file, but we need middleware early.
 	// REFACTOR: We need authService before middleware.
 
@@ -127,7 +126,7 @@ func main() {
 	userRepo := repository.NewUserRepository(db.DB())
 
 	// Initialize services
-	authService := services.NewAuthService(userRepo)
+	authService := services.NewAuthService(userRepo, cfg)
 	productService := services.NewProductService(productRepo, variantRepo, redis)
 	orderService := services.NewOrderService(orderRepo) // Added OrderService
 	variantService := services.NewVariantService(variantRepo, productRepo)
@@ -137,8 +136,16 @@ func main() {
 	notificationService := services.NewNotificationService(db, redis, cfg)
 	userService := services.NewUserService(userRepo)
 
-	// Initialize Ory Kratos middleware for authentication (MOVED AFTER SERVICES)
-	authMiddleware := middleware.NewKratosMiddleware(cfg.KratosPublicURL, cfg.KratosAdminURL, authService)
+	// Initialize JWT authentication middleware (MOVED AFTER SERVICES)
+	// Initialize Goth Providers
+	if cfg.GoogleKey != "" && cfg.GoogleSecret != "" {
+		goth.UseProviders(
+			google.New(cfg.GoogleKey, cfg.GoogleSecret, cfg.CallbackURL, "email", "profile"),
+		)
+	}
+
+	// Initialize Auth Middleware
+	authMiddleware := middleware.NewAuthMiddleware(cfg)
 
 	// Initialize Komerce client
 	komerceClient := komerce.NewClient(cfg.KomerceAPIKey, cfg.KomerceBaseURL)

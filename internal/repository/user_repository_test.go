@@ -24,7 +24,6 @@ func createTestUser(email string) *models.User {
 	return &models.User{
 		FullName: "Test User",
 		Email:    email,
-		KratosID: "kratos_" + email, // Ensure unique KratosID
 		Password: "hashedpassword",
 		Role:     models.RoleCustomer,
 		Phone:    "08123456789",
@@ -129,38 +128,6 @@ func TestUserRepository_FindByEmail_NotFound(t *testing.T) {
 
 	// Find non-existent email
 	fetched, err := repo.FindByEmail("nonexistent@example.com")
-	require.NoError(t, err) // Returns nil, not error
-	assert.Nil(t, fetched)
-}
-
-func TestUserRepository_FindByKratosID(t *testing.T) {
-	db, cleanup := setupUserTest(t)
-	defer cleanup()
-
-	repo := NewUserRepository(db)
-
-	// Create user with KratosID
-	user := createTestUser("kratos@example.com")
-	user.KratosID = "kratos-uuid-12345"
-	err := repo.Create(user)
-	require.NoError(t, err)
-
-	// Find by KratosID
-	fetched, err := repo.FindByKratosID("kratos-uuid-12345")
-	require.NoError(t, err)
-	assert.NotNil(t, fetched)
-	assert.Equal(t, user.ID, fetched.ID)
-	assert.Equal(t, "kratos-uuid-12345", fetched.KratosID)
-}
-
-func TestUserRepository_FindByKratosID_NotFound(t *testing.T) {
-	db, cleanup := setupUserTest(t)
-	defer cleanup()
-
-	repo := NewUserRepository(db)
-
-	// Find non-existent KratosID
-	fetched, err := repo.FindByKratosID("non-existent-kratos-id")
 	require.NoError(t, err) // Returns nil, not error
 	assert.Nil(t, fetched)
 }

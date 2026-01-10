@@ -1,12 +1,13 @@
 package services
 
 import (
-	"errors"
 	"testing"
 
+	"github.com/karima-store/internal/config"
 	"github.com/karima-store/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // MockUserRepository for testing
@@ -16,14 +17,6 @@ type MockUserRepository struct {
 
 func (m *MockUserRepository) FindByEmail(email string) (*models.User, error) {
 	args := m.Called(email)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.User), args.Error(1)
-}
-
-func (m *MockUserRepository) FindByKratosID(kratosID string) (*models.User, error) {
-	args := m.Called(kratosID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -48,104 +41,127 @@ func (m *MockUserRepository) FindByID(id uint) (*models.User, error) {
 	return args.Get(0).(*models.User), args.Error(1)
 }
 
-func TestAuthService_SyncUser(t *testing.T) {
-	// Test Case 1: Existing user by Kratos ID
-	t.Run("Existing_User_By_KratosID", func(t *testing.T) {
-		mockRepo := new(MockUserRepository)
-		service := NewAuthService(mockRepo)
+func setupAuthService() (*authService, *MockUserRepository) {
+	mockRepo := new(MockUserRepository)
+	cfg := &config.Config{
+		JWTSecret: "test-secret",
+	}
+	service := NewAuthService(mockRepo, cfg).(*authService)
+	return service, mockRepo
+}
 
-		kratosID := "test-kratos-id"
+func TestAuthService_Register(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		service, mockRepo := setupAuthService()
 		email := "test@example.com"
-		identity := &models.KratosIdentity{
-			ID:     kratosID,
-			Traits: map[string]interface{}{"email": email},
-		}
+		password := "password123"
+		fullName := "Test User"
 
-		existingUser := &models.User{
-			KratosID: kratosID,
-			Email:    email,
-		}
-
-		mockRepo.On("FindByKratosID", kratosID).Return(existingUser, nil)
-
-		user, err := service.SyncUser(identity, email)
-
-		assert.NoError(t, err)
-		assert.Equal(t, existingUser, user)
-		mockRepo.AssertExpectations(t)
-	})
-
-	// Test Case 2: New user (not found by ID or Email)
-	t.Run("New_User", func(t *testing.T) {
-		mockRepo := new(MockUserRepository)
-		service := NewAuthService(mockRepo)
-
-		kratosID := "new-kratos-id"
-		email := "new@example.com"
-		identity := &models.KratosIdentity{
-			ID:     kratosID,
-			Traits: map[string]interface{}{"email": email, "name": "New User"},
-		}
-
-		mockRepo.On("FindByKratosID", kratosID).Return(nil, nil)
 		mockRepo.On("FindByEmail", email).Return(nil, nil)
 		mockRepo.On("Create", mock.AnythingOfType("*models.User")).Return(nil)
 
-		user, err := service.SyncUser(identity, email)
+		user, token, err := service.Register(email, password, fullName)
 
 		assert.NoError(t, err)
-		assert.Equal(t, kratosID, user.KratosID)
+		assert.NotNil(t, user)
 		assert.Equal(t, email, user.Email)
-		assert.Equal(t, "New User", user.FullName)
+		assert.Equal(t, fullName, user.FullName)
+		assert.NotEmpty(t, token)
 		mockRepo.AssertExpectations(t)
 	})
 
-	// Test Case 3: Link existing legacy user (found by Email, no Kratos ID)
-	t.Run("Link_Legacy_User", func(t *testing.T) {
-		mockRepo := new(MockUserRepository)
-		service := NewAuthService(mockRepo)
+	t.Run("EmailAlreadyExists", func(t *testing.T) {
+		service, mockRepo := setupAuthService()
+		email := "test@example.com"
+		existingUser := &models.User{Email: email}
 
-		kratosID := "link-kratos-id"
-		email := "legacy@example.com"
-		identity := &models.KratosIdentity{
-			ID:     kratosID,
-			Traits: map[string]interface{}{"email": email},
+		mockRepo.On("FindByEmail", email).Return(existingUser, nil)
+
+		user, token, err := service.Register(email, "password", "name")
+
+		if assert.Error(t, err) {
+			assert.Equal(t, "email already registered", err.Error())
 		}
+		assert.Nil(t, user)
+		assert.Empty(t, token)
+		mockRepo.AssertExpectations(t)
+	})
+}
 
-		legacyUser := &models.User{
+func TestAuthService_Login(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		service, mockRepo := setupAuthService()
+		email := "test@example.com"
+		password := "password123"
+		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+
+		existingUser := &models.User{
 			Email:    email,
-			KratosID: "",
-			FullName: "Legacy User",
+			Password: string(hashedPassword),
+			IsActive: true,
 		}
 
-		mockRepo.On("FindByKratosID", kratosID).Return(nil, nil)
-		mockRepo.On("FindByEmail", email).Return(legacyUser, nil)
-		mockRepo.On("Update", legacyUser).Return(nil)
+		mockRepo.On("FindByEmail", email).Return(existingUser, nil)
+		mockRepo.On("Update", mock.AnythingOfType("*models.User")).Return(nil)
 
-		user, err := service.SyncUser(identity, email)
+		user, token, err := service.Login(email, password)
 
 		assert.NoError(t, err)
-		assert.Equal(t, legacyUser, user)
-		assert.Equal(t, kratosID, user.KratosID)
+		assert.NotNil(t, user)
+		assert.NotEmpty(t, token)
 		mockRepo.AssertExpectations(t)
 	})
 
-	// Test Case 4: Error checking Kratos ID
-	t.Run("Error_Checking_KratosID", func(t *testing.T) {
-		mockRepo := new(MockUserRepository)
-		service := NewAuthService(mockRepo)
+	t.Run("InvalidCredentials", func(t *testing.T) {
+		service, mockRepo := setupAuthService()
+		email := "test@example.com"
+		mockRepo.On("FindByEmail", email).Return(nil, nil)
 
-		kratosID := "error-id"
-		email := "error@example.com"
-		identity := &models.KratosIdentity{ID: kratosID}
+		user, token, err := service.Login(email, "wrongpassword")
 
-		mockRepo.On("FindByKratosID", kratosID).Return(nil, errors.New("db error"))
-
-		user, err := service.SyncUser(identity, email)
-
-		assert.Error(t, err)
+		if assert.Error(t, err) {
+			assert.Equal(t, "invalid credentials", err.Error())
+		}
 		assert.Nil(t, user)
-		assert.Contains(t, err.Error(), "failed to check user by kratos ID")
+		assert.Empty(t, token)
+	})
+}
+
+func TestAuthService_FindOrCreateByOAuth(t *testing.T) {
+	t.Run("CreateNewUser", func(t *testing.T) {
+		service, mockRepo := setupAuthService()
+		email := "oauth@example.com"
+		provider := "google"
+		providerID := "12345"
+
+		mockRepo.On("FindByEmail", email).Return(nil, nil)
+		mockRepo.On("Create", mock.AnythingOfType("*models.User")).Return(nil)
+
+		user, token, err := service.FindOrCreateByOAuth(provider, email, providerID, "OAuth User", "avatar.jpg")
+
+		assert.NoError(t, err)
+		assert.NotNil(t, user)
+		assert.Equal(t, email, user.Email)
+		assert.NotEmpty(t, token)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("ExistingUser", func(t *testing.T) {
+		service, mockRepo := setupAuthService()
+		email := "oauth@example.com"
+		existingUser := &models.User{
+			Email:  email,
+			Avatar: "old.jpg",
+		}
+
+		mockRepo.On("FindByEmail", email).Return(existingUser, nil)
+		mockRepo.On("Update", mock.AnythingOfType("*models.User")).Return(nil) // Updates avatar
+
+		user, token, err := service.FindOrCreateByOAuth("google", email, "123", "User", "new.jpg")
+
+		assert.NoError(t, err)
+		assert.Equal(t, existingUser, user)
+		assert.NotEmpty(t, token)
 		mockRepo.AssertExpectations(t)
 	})
 }

@@ -23,12 +23,11 @@ func NewCheckoutHandler(checkoutService services.CheckoutService) *CheckoutHandl
 // @Tags payment
 // @Accept json
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth
 // @Param checkout body models.CheckoutRequest true "Checkout request with items and shipping information"
 // @Success 200 {object} map[string]interface{} "Success response with order number, snap token, and payment URL"
 // @Failure 400 {object} map[string]interface{} "Invalid request body"
-// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
+// @Failure 401 {object} map[string]interface{} "Unauthorized: No valid JWT token"
 // @Failure 500 {object} map[string]interface{} "Server error during order creation or payment token generation"
 // @Router /api/v1/checkout [post]
 func (h *CheckoutHandler) Checkout(c *fiber.Ctx) error {

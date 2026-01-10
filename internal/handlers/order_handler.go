@@ -21,8 +21,7 @@ func NewOrderHandler(orderService services.OrderService) *OrderHandler {
 // @Tags orders
 // @Accept json
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
 // @Param page query int false "Page number"
 // @Param limit query int false "Items per page"
 // @Success 200 {object} map[string]interface{}
@@ -75,8 +74,7 @@ func (h *OrderHandler) GetOrders(c *fiber.Ctx) error {
 // @Tags orders
 // @Accept json
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
 // @Param id path int true "Order ID"
 // @Success 200 {object} map[string]interface{} // Using map instead of models.Order for simplicity in swagger for now
 // @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"

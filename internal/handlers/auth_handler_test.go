@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
@@ -18,12 +19,28 @@ type MockAuthService struct {
 	mock.Mock
 }
 
-func (m *MockAuthService) SyncUser(kratosIdentity *models.KratosIdentity, email string) (*models.User, error) {
-	args := m.Called(kratosIdentity, email)
+func (m *MockAuthService) Register(email, password, fullName string) (*models.User, string, error) {
+	args := m.Called(email, password, fullName)
 	if args.Get(0) == nil {
-		return nil, args.Error(1)
+		return nil, "", args.Error(2)
 	}
-	return args.Get(0).(*models.User), args.Error(1)
+	return args.Get(0).(*models.User), args.String(1), args.Error(2)
+}
+
+func (m *MockAuthService) Login(email, password string) (*models.User, string, error) {
+	args := m.Called(email, password)
+	if args.Get(0) == nil {
+		return nil, "", args.Error(2)
+	}
+	return args.Get(0).(*models.User), args.String(1), args.Error(2)
+}
+
+func (m *MockAuthService) FindOrCreateByOAuth(provider, email, providerID, fullName, avatar string) (*models.User, string, error) {
+	args := m.Called(provider, email, providerID, fullName, avatar)
+	if args.Get(0) == nil {
+		return nil, "", args.Error(2)
+	}
+	return args.Get(0).(*models.User), args.String(1), args.Error(2)
 }
 
 func (m *MockAuthService) GetUserByID(id uint) (*models.User, error) {
@@ -36,142 +53,115 @@ func (m *MockAuthService) GetUserByID(id uint) (*models.User, error) {
 
 func TestAuthHandler_Register(t *testing.T) {
 	mockService := new(MockAuthService)
-	cfg := &config.Config{
-		KratosPublicURL: "http://kratos:4433",
-	}
+	cfg := &config.Config{AppEnv: "test"}
 	handler := NewAuthHandler(mockService, cfg)
 
 	app := fiber.New()
 	app.Post("/auth/register", handler.Register)
 
-	req := httptest.NewRequest("POST", "/auth/register", nil)
-	resp, err := app.Test(req)
+	t.Run("Success", func(t *testing.T) {
+		reqBody := map[string]string{
+			"email":     "test@example.com",
+			"password":  "password123",
+			"full_name": "Test User",
+		}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest("POST", "/auth/register", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
 
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusSeeOther, resp.StatusCode) // 303 See Other
-	assert.Equal(t, cfg.KratosPublicURL+"/self-service/registration/browser", resp.Header.Get("Location"))
+		mockUser := &models.User{Email: "test@example.com", FullName: "Test User"}
+		mockService.On("Register", "test@example.com", "password123", "Test User").Return(mockUser, "test-token", nil)
+
+		resp, err := app.Test(req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+		assert.Equal(t, "test-token", result["token"])
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("InvalidPayload", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/auth/register", bytes.NewReader([]byte("invalid json")))
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	})
 }
 
 func TestAuthHandler_Login(t *testing.T) {
 	mockService := new(MockAuthService)
-	cfg := &config.Config{
-		KratosPublicURL: "http://kratos:4433",
-	}
+	cfg := &config.Config{AppEnv: "test"}
 	handler := NewAuthHandler(mockService, cfg)
 
 	app := fiber.New()
 	app.Post("/auth/login", handler.Login)
 
-	req := httptest.NewRequest("POST", "/auth/login", nil)
-	resp, err := app.Test(req)
+	t.Run("Success", func(t *testing.T) {
+		reqBody := map[string]string{
+			"email":    "test@example.com",
+			"password": "password123",
+		}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest("POST", "/auth/login", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
 
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusSeeOther, resp.StatusCode)
-	assert.Equal(t, cfg.KratosPublicURL+"/self-service/login/browser", resp.Header.Get("Location"))
+		mockUser := &models.User{Email: "test@example.com"}
+		mockService.On("Login", "test@example.com", "password123").Return(mockUser, "test-token", nil)
+
+		resp, err := app.Test(req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("InvalidCredentials", func(t *testing.T) {
+		reqBody := map[string]string{
+			"email":    "test@example.com",
+			"password": "wrongpassword",
+		}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest("POST", "/auth/login", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+
+		mockService.On("Login", "test@example.com", "wrongpassword").Return(nil, "", errors.New("invalid credentials"))
+
+		resp, err := app.Test(req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
+	})
 }
 
-func TestAuthHandler_Logout(t *testing.T) {
+func TestAuthHandler_Me(t *testing.T) {
 	mockService := new(MockAuthService)
-	cfg := &config.Config{
-		KratosPublicURL: "http://kratos:4433",
-	}
+	cfg := &config.Config{AppEnv: "test"}
 	handler := NewAuthHandler(mockService, cfg)
 
 	app := fiber.New()
-	app.Post("/auth/logout", handler.Logout)
 
-	req := httptest.NewRequest("POST", "/auth/logout", nil)
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusSeeOther, resp.StatusCode)
-	assert.Equal(t, cfg.KratosPublicURL+"/self-service/browser/flows/logout", resp.Header.Get("Location"))
-}
-
-func TestAuthHandler_Me_Success(t *testing.T) {
-	mockService := new(MockAuthService)
-	cfg := &config.Config{}
-	handler := NewAuthHandler(mockService, cfg)
-
-	app := fiber.New()
-
-	// Middleware to inject session manually for testing (simulating KratosMiddleware)
+	// Mock middleware setting user_id
 	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("session", &models.KratosSession{
-			Identity: models.KratosIdentity{
-				ID: "test-kratos-id",
-			},
-		})
-		c.Locals("user_email", "test@example.com")
+		c.Locals("user_id", float64(1)) // JWT often parses numbers as float64
 		return c.Next()
 	})
 
 	app.Get("/auth/me", handler.Me)
 
-	// Mock Service Response
-	mockUser := &models.User{
-		KratosID: "test-kratos-id",
-		Email:    "test@example.com",
-		FullName: "Test User",
-	}
-	mockService.On("SyncUser", mock.Anything, "test@example.com").Return(mockUser, nil)
+	t.Run("Success", func(t *testing.T) {
+		mockUser := &models.User{ID: 1, Email: "test@example.com"}
+		mockService.On("GetUserByID", uint(1)).Return(mockUser, nil)
 
-	req := httptest.NewRequest("GET", "/auth/me", nil)
-	resp, err := app.Test(req)
+		req := httptest.NewRequest("GET", "/auth/me", nil)
+		resp, err := app.Test(req)
 
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-
-	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
-	data := result["data"].(map[string]interface{})
-	user := data["user"].(map[string]interface{})
-
-	assert.Equal(t, "test-kratos-id", user["kratos_id"])
-	assert.Equal(t, "test@example.com", user["email"])
-	mockService.AssertExpectations(t)
-}
-
-func TestAuthHandler_Me_Unauthenticated(t *testing.T) {
-	mockService := new(MockAuthService)
-	cfg := &config.Config{}
-	handler := NewAuthHandler(mockService, cfg)
-
-	app := fiber.New()
-	// No session injection middleware = unauthenticated
-
-	app.Get("/auth/me", handler.Me)
-
-	req := httptest.NewRequest("GET", "/auth/me", nil)
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
-}
-
-func TestAuthHandler_Me_SyncError(t *testing.T) {
-	mockService := new(MockAuthService)
-	cfg := &config.Config{}
-	handler := NewAuthHandler(mockService, cfg)
-
-	app := fiber.New()
-	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("session", &models.KratosSession{
-			Identity: models.KratosIdentity{ID: "test-kratos-id"},
-		})
-		c.Locals("user_email", "test@example.com")
-		return c.Next()
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+		mockService.AssertExpectations(t)
 	})
-
-	app.Get("/auth/me", handler.Me)
-
-	mockService.On("SyncUser", mock.Anything, "test@example.com").Return(nil, errors.New("sync failed"))
-
-	req := httptest.NewRequest("GET", "/auth/me", nil)
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
-	mockService.AssertExpectations(t)
 }

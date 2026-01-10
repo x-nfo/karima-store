@@ -16,6 +16,13 @@ definitions:
       user_id:
         type: integer
     type: object
+  handlers.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
   handlers.OrderSummaryRequest:
     properties:
       coupon_code:
@@ -30,6 +37,15 @@ definitions:
         $ref: '#/definitions/services.ShippingCalculationRequest'
       user_id:
         type: integer
+    type: object
+  handlers.RegisterRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        type: string
     type: object
   handlers.RequestPickupRequest:
     properties:
@@ -184,11 +200,6 @@ definitions:
       name:
         description: Basic Information
         type: string
-      products:
-        description: Relations
-        items:
-          $ref: '#/definitions/models.Product'
-        type: array
       start_time:
         description: Timing
         type: string
@@ -579,6 +590,9 @@ definitions:
         type: array
       id:
         type: integer
+      is_featured:
+        description: Featured
+        type: boolean
       material:
         type: string
       media:
@@ -675,11 +689,15 @@ definitions:
     - available
     - out_of_stock
     - discontinued
+    - unavailable
+    - draft
     type: string
     x-enum-varnames:
     - StatusAvailable
     - StatusOutOfStock
     - StatusDiscontinued
+    - StatusUnavailable
+    - StatusDraft
   models.ProductVariant:
     properties:
       color:
@@ -905,27 +923,27 @@ info:
     email: support@karimastore.com
     name: Karima Store API Support
   description: |-
-    Karima Store E-commerce API with Ory Kratos Authentication
+    Karima Store E-commerce API with JWT Authentication
 
     ## Authentication
 
-    This API uses **Ory Kratos** for session-based authentication.
+    This API uses **JWT (JSON Web Token)** for authentication.
 
     ### For Web/Browser Clients:
-    1. Login via Kratos UI at http://127.0.0.1:4455/login
-    2. Session cookie (ory_kratos_session) will be set automatically
+    1. Login via /api/v1/auth/login endpoint
+    2. Session cookie (jwt) will be set automatically
     3. Make API requests with the cookie included
 
     ### For API/Mobile Clients:
-    1. Obtain session token from Kratos login flow
+    1. Obtain JWT token from /api/v1/auth/login endpoint
     2. Include token in requests:
-    - Method 1: Authorization: Bearer <session_token>
-    - Method 2: X-Session-Token: <session_token> header
+    - Method 1: Authorization: Bearer <jwt_token>
+    - Method 2: X-Session-Token: <jwt_token> header
 
     ### Authorization Levels:
     - **Public**: No authentication required (GET endpoints for browsing)
-    - **Authenticated**: Valid Kratos session required
-    - **Admin**: Valid session + admin role in identity traits
+    - **Authenticated**: Valid JWT token required
+    - **Admin**: Valid JWT token + admin role
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
@@ -933,6 +951,145 @@ info:
   title: Karima Store API
   version: "1.0"
 paths:
+  /api/v1/auth/{provider}:
+    get:
+      description: Initiate OAuth login with a provider (e.g., google)
+      parameters:
+      - description: OAuth Provider (google)
+        in: path
+        name: provider
+        required: true
+        type: string
+      responses:
+        "302":
+          description: Found
+      summary: Initiate OAuth login
+      tags:
+      - auth
+  /api/v1/auth/{provider}/callback:
+    get:
+      description: Callback endpoint for OAuth providers
+      parameters:
+      - description: OAuth Provider
+        in: path
+        name: provider
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: OAuth Callback
+      tags:
+      - auth
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Login with email and password to get JWT token
+      parameters:
+      - description: Login Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Login user
+      tags:
+      - auth
+  /api/v1/auth/logout:
+    post:
+      description: Clear the JWT cookie
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Logout user
+      tags:
+      - auth
+  /api/v1/auth/me:
+    get:
+      description: Get the profile of the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current user profile
+      tags:
+      - auth
+  /api/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with email, password, and full name
+      parameters:
+      - description: Registration Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Register a new user
+      tags:
+      - auth
   /api/v1/categories:
     get:
       description: Retrieve all available product categories
@@ -1040,7 +1197,7 @@ paths:
             additionalProperties: true
             type: object
         "401":
-          description: 'Unauthorized: No valid session or session expired'
+          description: 'Unauthorized: No valid JWT token'
           schema:
             additionalProperties: true
             type: object
@@ -1050,10 +1207,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
-        - ""
+      - BearerAuth: []
       summary: Create Order and Generate Payment Token
       tags:
       - payment
@@ -1172,9 +1326,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Get user orders
       tags:
@@ -1214,9 +1366,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Get order details
       tags:
@@ -1615,9 +1765,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Create a new product (Admin only)
       tags:
@@ -1735,9 +1883,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Delete product (Admin only)
       tags:
@@ -1822,9 +1968,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Update product (Admin only)
       tags:
@@ -1919,9 +2063,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Upload product media (Admin only)
       tags:
@@ -1975,9 +2117,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Update product stock (Admin only)
       tags:
@@ -2329,9 +2469,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Delete variant (Admin only)
       tags:
@@ -2416,9 +2554,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Update variant (Admin only)
       tags:
@@ -2472,9 +2608,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Update variant stock (Admin only)
       tags:
@@ -2555,9 +2689,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Send order created notification (Admin only)
       tags:
@@ -2608,9 +2740,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Send payment success notification (Admin only)
       tags:
@@ -2662,9 +2792,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Send WhatsApp message (Admin only)
       tags:
@@ -2738,9 +2866,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - 'KratosSession ':
-        - ""
-      - 'KratosSessionCookie ':
+      - 'BearerAuth ':
         - ""
       summary: Send test WhatsApp message (Admin only)
       tags:
@@ -2956,15 +3082,287 @@ paths:
       summary: Show Swagger UI
       tags:
       - Documentation
+  /users:
+    get:
+      consumes:
+      - application/json
+      description: Get list of all users (admin only)
+      parameters:
+      - default: 20
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - 'BearerAuth ':
+        - ""
+      summary: Get all users
+      tags:
+      - users
+  /users/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get user details by ID (admin or self)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - 'BearerAuth ':
+        - ""
+      summary: Get user by ID
+      tags:
+      - users
+  /users/{id}/activate:
+    put:
+      consumes:
+      - application/json
+      description: Activate a user account (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - 'BearerAuth ':
+        - ""
+      summary: Activate user
+      tags:
+      - users
+  /users/{id}/deactivate:
+    put:
+      consumes:
+      - application/json
+      description: Deactivate a user account (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - 'BearerAuth ':
+        - ""
+      summary: Deactivate user
+      tags:
+      - users
+  /users/{id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Update a user's role (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Role update request
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - 'BearerAuth ':
+        - ""
+      summary: Update user role
+      tags:
+      - users
+  /users/me:
+    get:
+      consumes:
+      - application/json
+      description: Get current user's profile
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - 'BearerAuth ':
+        - ""
+      summary: Get current authenticated user
+      tags:
+      - users
+  /users/stats:
+    get:
+      consumes:
+      - application/json
+      description: Get user statistics (admin only)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - 'BearerAuth ':
+        - ""
+      summary: Get user statistics
+      tags:
+      - users
 securityDefinitions:
-  KratosSession:
-    description: Ory Kratos session token (Bearer token or X-Session-Token header)
+  BearerAuth:
+    description: 'JWT Authorization header using the Bearer scheme. Example: "Authorization:
+      Bearer {token}"'
     in: header
     name: Authorization
-    type: apiKey
-  KratosSessionCookie:
-    description: Ory Kratos session cookie (ory_kratos_session)
-    in: header
-    name: Cookie
     type: apiKey
 swagger: "2.0"

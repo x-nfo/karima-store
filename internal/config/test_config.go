@@ -1,20 +1,24 @@
 package config
 
 // TestConfig returns a test configuration for unit tests
+// IMPORTANT: Tests use a separate database (karima_test_db) to avoid conflicts with production
 func TestConfig() *Config {
 	return &Config{
 		AppEnv:            "test",
 		AppPort:           "8080",
-		DBHost:            "localhost",
-		DBPort:            "5432",
-		DBUser:            "test_user",
-		DBPassword:        "test_password",
-		DBName:            "karima_store_test",
-		RedisHost:         "localhost",
-		RedisPort:         "6379",
+		DBHost:            getEnv("TEST_DB_HOST", "localhost"),
+		DBPort:            getEnv("TEST_DB_PORT", "5432"),
+		DBUser:            getEnv("TEST_DB_USER", "karima_store"),
+		DBPassword:        getEnv("TEST_DB_PASSWORD", "lokal"),
+		DBName:            getEnv("TEST_DB_NAME", "karima_test_db"),
+		DBSSLMode:         "disable",
+		RedisHost:         getEnv("TEST_REDIS_HOST", "localhost"),
+		RedisPort:         getEnv("TEST_REDIS_PORT", "6380"),
 		RedisPassword:     "",
-		KratosPublicURL:   "http://localhost:4433",
-		KratosAdminURL:    "http://localhost:4434",
+		JWTSecret:         "test-secret-key-for-testing-only",
+		GoogleKey:         "test-google-key",
+		GoogleSecret:      "test-google-secret",
+		CallbackURL:       "http://localhost:8080/api/v1/auth/google/callback",
 		FileStorage:       "local",
 		RateLimitLimit:    "100",
 		RateLimitWindow:   "1m",
@@ -24,7 +28,6 @@ func TestConfig() *Config {
 		R2BucketName:      "",
 		R2PublicURL:       "",
 		R2Region:          "",
-		JWTSecret:         "test-secret-key-for-testing-only",
 	}
 }
 

@@ -28,8 +28,8 @@ func NewProductHandler(productService services.ProductService, mediaService serv
 // @Tags products
 // @Accept json
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
+// 
 // @Param product body models.Product true "Product object"
 // @Success 201 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
@@ -184,8 +184,8 @@ func (h *ProductHandler) GetProducts(c *fiber.Ctx) error {
 // @Tags products
 // @Accept json
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
+// 
 // @Param id path int true "Product ID"
 // @Param product body models.Product true "Product object"
 // @Success 200 {object} map[string]interface{}
@@ -231,8 +231,8 @@ func (h *ProductHandler) UpdateProduct(c *fiber.Ctx) error {
 // @Description Delete a product by ID. **Admin only**: Requires authentication with admin role.
 // @Tags products
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
+// 
 // @Param id path int true "Product ID"
 // @Success 200 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{} "Unauthorized: No valid session or session expired"
@@ -270,8 +270,8 @@ func (h *ProductHandler) DeleteProduct(c *fiber.Ctx) error {
 // @Tags products
 // @Accept json
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
+// 
 // @Param id path int true "Product ID"
 // @Param body body map[string]int true "Stock update object"
 // @Success 200 {object} map[string]interface{}
@@ -440,8 +440,8 @@ func (h *ProductHandler) GetFeaturedProducts(c *fiber.Ctx) error {
 // @Tags products
 // @Accept multipart/form-data
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
+// 
 // @Param product_id formData int true "Product ID"
 // @Param file formData file true "Image file"
 // @Param position formData int false "Position"

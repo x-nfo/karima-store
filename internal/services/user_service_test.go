@@ -13,16 +13,14 @@ import (
 // Helper function to create test user
 func createTestUser(id uint, email string, role models.UserRole, isActive bool) *models.User {
 	return &models.User{
-		ID:        id,
-		Email:     email,
-		FullName:  "Test User",
-		KratosID:  "kratos-123",
-		Phone:     "08123456789",
-		Role:      role,
-		IsActive:  isActive,
+		ID:         id,
+		Email:      email,
+		Phone:      "08123456789",
+		Role:       role,
+		IsActive:   isActive,
 		IsVerified: true,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}
 }
 
@@ -129,7 +127,7 @@ func TestUserService_GetUsers_WithFilters(t *testing.T) {
 	service := NewUserService(mockRepo)
 
 	filters := map[string]interface{}{
-		"role":     "admin",
+		"role":      "admin",
 		"is_active": true,
 	}
 

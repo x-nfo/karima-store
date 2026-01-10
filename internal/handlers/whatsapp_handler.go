@@ -28,8 +28,7 @@ func NewWhatsAppHandler(notificationService services.NotificationService) *Whats
 // @Tags whatsapp
 // @Accept json
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
 // @Param phoneNumber query string true "Phone number in E.164 format"
 // @Param message body string true "Message content"
 // @Success 200 {object} map[string]interface{} "Success response"
@@ -85,8 +84,7 @@ func (h *WhatsAppHandler) SendWhatsAppMessage(c *fiber.Ctx) error {
 // @Tags whatsapp
 // @Accept json
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
 // @Param order_id path uint true "Order ID"
 // @Success 200 {object} map[string]interface{} "Success response"
 // @Failure 400 {object} map[string]interface{} "Bad request"
@@ -157,8 +155,7 @@ func (h *WhatsAppHandler) SendOrderCreatedNotification(c *fiber.Ctx) error {
 // @Tags whatsapp
 // @Accept json
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
 // @Param order_id path uint true "Order ID"
 // @Success 200 {object} map[string]interface{} "Success response"
 // @Failure 400 {object} map[string]interface{} "Bad request"
@@ -295,8 +292,7 @@ func (h *WhatsAppHandler) GetWhatsAppStatus(c *fiber.Ctx) error {
 // @Tags whatsapp
 // @Accept json
 // @Produce json
-// @Security KratosSession []
-// @Security KratosSessionCookie []
+// @Security BearerAuth []
 // @Param phoneNumber query string true "Phone number in E.164 format"
 // @Param message body string true "Message content"
 // @Success 200 {object} map[string]interface{} "Success response"

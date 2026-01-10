@@ -23,7 +23,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api/v1",
 	Schemes:          []string{"http"},
 	Title:            "Karima Store API",
-	Description:      "Karima Store E-commerce API Documentation - Using Ory Kratos Authentication",
+	Description:      "Karima Store E-commerce API Documentation - Using JWT Authentication",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
     LeftDelim:        "{{",

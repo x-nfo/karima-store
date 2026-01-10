@@ -2,9 +2,9 @@ package middleware
 
 import "github.com/gofiber/fiber/v2"
 
-// KratosMiddleware interface for authentication middleware
-// This allows us to use Ory Kratos for authentication
-type KratosMiddleware interface {
+// AuthProvider interface for authentication middleware
+// This provides a unified interface for authentication using Go Fiber
+type AuthProvider interface {
 	// ValidateToken validates the session token and sets user context
 	ValidateToken() fiber.Handler
 

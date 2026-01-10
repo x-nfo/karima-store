@@ -9,9 +9,9 @@ import (
 )
 
 // RequirePermission checks if the authenticated user has a specific permission
-func (m *KratosAuthProvider) RequirePermission(permission models.Permission) fiber.Handler {
+func (m *AuthMiddleware) RequirePermission(permission models.Permission) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userRole := c.Locals("user_role")
+		userRole := c.Locals("role")
 		if userRole == nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "User not authenticated",
@@ -43,14 +43,14 @@ func (m *KratosAuthProvider) RequirePermission(permission models.Permission) fib
 // RequireOwnership validates that the authenticated user owns the resource
 // The resource ID should be in the route params (e.g., /orders/:id)
 // paramName is the name of the parameter containing the resource owner ID (default: "id")
-func (m *KratosAuthProvider) RequireOwnership(paramName string) fiber.Handler {
+func (m *AuthMiddleware) RequireOwnership(paramName string) fiber.Handler {
 	if paramName == "" {
 		paramName = "id"
 	}
 
 	return func(c *fiber.Ctx) error {
 		// Get authenticated user
-		localUserID := c.Locals("local_user_id")
+		localUserID := c.Locals("user_id")
 		if localUserID == nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "User not authenticated",
@@ -58,16 +58,21 @@ func (m *KratosAuthProvider) RequireOwnership(paramName string) fiber.Handler {
 			})
 		}
 
-		userID, ok := localUserID.(uint)
+		userIDFloat, ok := localUserID.(float64)
 		if !ok {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Invalid user ID type",
-				"code":  "INTERNAL_SERVER_ERROR",
-			})
+			if uid, ok := localUserID.(uint); ok {
+				userIDFloat = float64(uid)
+			} else {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Invalid user ID type",
+					"code":  "INTERNAL_SERVER_ERROR",
+				})
+			}
 		}
+		userID := uint(userIDFloat)
 
 		// Get user role
-		userRole := c.Locals("user_role")
+		userRole := c.Locals("role")
 		role, ok := userRole.(models.UserRole)
 		if !ok {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -117,14 +122,14 @@ func (m *KratosAuthProvider) RequireOwnership(paramName string) fiber.Handler {
 
 // RequireAdminOrOwner allows access if user is admin OR owns the resource
 // This combines admin check with ownership validation
-func (m *KratosAuthProvider) RequireAdminOrOwner(ownerIDParam string) fiber.Handler {
+func (m *AuthMiddleware) RequireAdminOrOwner(ownerIDParam string) fiber.Handler {
 	if ownerIDParam == "" {
 		ownerIDParam = "user_id"
 	}
 
 	return func(c *fiber.Ctx) error {
 		// Get authenticated user
-		localUserID := c.Locals("local_user_id")
+		localUserID := c.Locals("user_id")
 		if localUserID == nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "User not authenticated",
@@ -132,16 +137,21 @@ func (m *KratosAuthProvider) RequireAdminOrOwner(ownerIDParam string) fiber.Hand
 			})
 		}
 
-		userID, ok := localUserID.(uint)
+		userID, ok := localUserID.(float64) // JWT claims usually decode numbers as float64
 		if !ok {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Invalid user ID type",
-				"code":  "INTERNAL_SERVER_ERROR",
-			})
+			// Try uint if it was set differently
+			if uid, ok := localUserID.(uint); ok {
+				userID = float64(uid)
+			} else {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Invalid user ID type",
+					"code":  "INTERNAL_SERVER_ERROR",
+				})
+			}
 		}
 
 		// Get user role
-		userRole := c.Locals("user_role")
+		userRole := c.Locals("role")
 		role, ok := userRole.(models.UserRole)
 		if !ok {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -178,7 +188,7 @@ func (m *KratosAuthProvider) RequireAdminOrOwner(ownerIDParam string) fiber.Hand
 		}
 
 		// Check if user is the owner
-		if userID != uint(ownerID) {
+		if uint(userID) != uint(ownerID) {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"error": "You don't have permission to access this resource",
 				"code":  "FORBIDDEN",

@@ -22,7 +22,6 @@ type User struct {
 	// Basic Information
 	FullName    string     `json:"full_name" gorm:"not null;size:100"`
 	Email       string     `json:"email" gorm:"uniqueIndex;not null;size:100"`
-	KratosID    string     `json:"kratos_id" gorm:"uniqueIndex;size:36"`
 	Phone       string     `json:"phone" gorm:"size:20"`
 	Password    string     `json:"-" gorm:"not null;size:255"`
 	Avatar      string     `json:"avatar" gorm:"size:255"`

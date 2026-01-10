@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/karima-store/internal/config"
-	"github.com/karima-store/internal/models"
 	"github.com/karima-store/internal/services"
+	"github.com/shareed2k/goth_fiber"
 )
 
 type AuthHandler struct {
@@ -19,74 +21,184 @@ func NewAuthHandler(authService services.AuthService, cfg *config.Config) *AuthH
 	}
 }
 
-// Register initiates the registration flow
-// @Summary Initiate Registration
-// @Description Redirects to Kratos registration UI or returns init flow URL
+type RegisterRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	FullName string `json:"full_name"`
+}
+
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// Register godoc
+// @Summary Register a new user
+// @Description Register a new user with email, password, and full name
 // @Tags auth
+// @Accept json
 // @Produce json
-// @Success 303 {string} string "Redirect to Kratos"
-// @Router /auth/register [post]
+// @Param request body RegisterRequest true "Registration Request"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/v1/auth/register [post]
 func (h *AuthHandler) Register(c *fiber.Ctx) error {
-	// For API clients, we might want to return the flow URL instead of redirecting
-	// For now, we'll redirect to the browser-based UI flow
-	return c.Redirect(h.config.KratosPublicURL+"/self-service/registration/browser", fiber.StatusSeeOther)
-}
+	var req RegisterRequest
 
-// Login initiates the login flow
-// @Summary Initiate Login
-// @Description Redirects to Kratos login UI or returns init flow URL
-// @Tags auth
-// @Produce json
-// @Success 303 {string} string "Redirect to Kratos"
-// @Router /auth/login [post]
-func (h *AuthHandler) Login(c *fiber.Ctx) error {
-	return c.Redirect(h.config.KratosPublicURL+"/self-service/login/browser", fiber.StatusSeeOther)
-}
-
-// Logout initiates the logout flow
-// @Summary Initiate Logout
-// @Description Redirects to Kratos logout UI
-// @Tags auth
-// @Produce json
-// @Success 303 {string} string "Redirect to Kratos"
-// @Router /auth/logout [post]
-func (h *AuthHandler) Logout(c *fiber.Ctx) error {
-	return c.Redirect(h.config.KratosPublicURL+"/self-service/browser/flows/logout", fiber.StatusSeeOther)
-}
-
-// Me returns the current authenticated user's details
-// @Summary Get Current User
-// @Description detailed user info merging Kratos identity and local DB user
-// @Tags auth
-// @Produce json
-// @Success 200 {object} models.User
-// @Router /auth/me [get]
-func (h *AuthHandler) Me(c *fiber.Ctx) error {
-	// This endpoint is protected by KratosMiddleware, so we should have locals
-	kratosSession, ok := c.Locals("session").(*models.KratosSession)
-	if !ok || kratosSession == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Not authenticated",
-		})
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	email, _ := c.Locals("user_email").(string)
-
-	// Sync User (Lazy Sync)
-	user, err := h.authService.SyncUser(&kratosSession.Identity, email)
+	user, token, err := h.authService.Register(req.Email, req.Password, req.FullName)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to sync user data: " + err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	// Update LastLoginAt if needed (logic can be added to service)
-
-	return c.JSON(fiber.Map{
-		"status": "success",
-		"data": fiber.Map{
-			"user":    user,
-			"session": kratosSession,
-		},
+	// Set Cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    token,
+		Expires:  time.Now().Add(24 * time.Hour),
+		HTTPOnly: true,
+		Secure:   h.config.AppEnv == "production",
 	})
+
+	return c.JSON(fiber.Map{"user": user, "token": token})
+}
+
+// Login godoc
+// @Summary Login user
+// @Description Login with email and password to get JWT token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body LoginRequest true "Login Request"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/v1/auth/login [post]
+func (h *AuthHandler) Login(c *fiber.Ctx) error {
+	var req LoginRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	user, token, err := h.authService.Login(req.Email, req.Password)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// Set Cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    token,
+		Expires:  time.Now().Add(24 * time.Hour),
+		HTTPOnly: true,
+		Secure:   h.config.AppEnv == "production",
+	})
+
+	return c.JSON(fiber.Map{"user": user, "token": token})
+}
+
+// OAuthLogin godoc
+// @Summary Initiate OAuth login
+// @Description Initiate OAuth login with a provider (e.g., google)
+// @Tags auth
+// @Param provider path string true "OAuth Provider (google)"
+// @Success 302
+// @Router /api/v1/auth/{provider} [get]
+func (h *AuthHandler) OAuthLogin(c *fiber.Ctx) error {
+	// goth_fiber uses "provider" param from route by default
+	return goth_fiber.BeginAuthHandler(c)
+}
+
+// Logout godoc
+// @Summary Logout user
+// @Description Clear the JWT cookie
+// @Tags auth
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/auth/logout [post]
+func (h *AuthHandler) Logout(c *fiber.Ctx) error {
+	c.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    "",
+		Expires:  time.Now().Add(-1 * time.Hour),
+		HTTPOnly: true,
+	})
+
+	// Logout from Goth session if possible (optional)
+	// goth_fiber.Logout(c)
+
+	return c.JSON(fiber.Map{"message": "Logged out successfully"})
+}
+
+// Me godoc
+// @Summary Get current user profile
+// @Description Get the profile of the currently authenticated user
+// @Tags auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /api/v1/auth/me [get]
+func (h *AuthHandler) Me(c *fiber.Ctx) error {
+	userID := c.Locals("user_id")
+	if userID == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	// userID (from JWT claims) is float64 by default when parsing JSON/MapClaims
+	var id uint
+	switch v := userID.(type) {
+	case float64:
+		id = uint(v)
+	case uint:
+		id = v
+	default:
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid user ID type"})
+	}
+
+	user, err := h.authService.GetUserByID(id)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	return c.JSON(fiber.Map{"user": user})
+}
+
+// OAuthCallback godoc
+// @Summary OAuth Callback
+// @Description Callback endpoint for OAuth providers
+// @Tags auth
+// @Param provider path string true "OAuth Provider"
+// @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/v1/auth/{provider}/callback [get]
+func (h *AuthHandler) OAuthCallback(c *fiber.Ctx) error {
+	user, err := goth_fiber.CompleteUserAuth(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// Create or update user in our DB
+	dbUser, token, err := h.authService.FindOrCreateByOAuth(user.Provider, user.Email, user.UserID, user.Name, user.AvatarURL)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to process login"})
+	}
+
+	// Set Cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    token,
+		Expires:  time.Now().Add(24 * time.Hour),
+		HTTPOnly: true,
+		Secure:   h.config.AppEnv == "production",
+	})
+
+	// Just return JSON for now, or redirect to frontend
+	// return c.Redirect("http://localhost:3000/auth/success?token=" + token)
+	return c.JSON(fiber.Map{"user": dbUser, "token": token})
 }
