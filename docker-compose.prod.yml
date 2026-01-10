@@ -26,7 +26,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: karima_store_backend:v1.0.2
+    image: karima_store_backend:v1.0.3
     container_name: karima_store_backend
     restart: always
     # env_file:
@@ -100,7 +100,7 @@ services:
     build:
       context: ./deploy/kratos
       dockerfile: Dockerfile
-    image: karima_store_kratos:v1.0.2
+    image: karima_store_kratos:v1.0.3
     container_name: kratos
     restart: always
     environment:
