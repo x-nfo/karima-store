@@ -25,6 +25,9 @@ serve:
         - Cookie
         - Content-Type
         - X-Session-Token
+        - X-Request-Id
+        - Origin
+        - Accept
       exposed_headers:
         - Content-Type
         - Set-Cookie
@@ -74,7 +77,7 @@ session:
   cookie:
     domain: karimasyari.com
     path: /
-    same_site: Lax
+    same_site: None
     name: karima_session
 
 log:
