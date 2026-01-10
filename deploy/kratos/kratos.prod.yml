@@ -74,9 +74,8 @@ session:
   cookie:
     domain: karimasyari.com
     path: /
-    same_site: None
+    same_site: Lax
     name: karima_session
-    secure: true
 
 log:
   level: warning
