@@ -5,6 +5,8 @@ version: v1.1.0
 
 serve:
   public:
+    base_url: https://auth.karimasyari.com/
+    host: 0.0.0.0
     cors:
       enabled: true
       # CORS allowed origins cannot be easily overridden by ENV in older versions, 
