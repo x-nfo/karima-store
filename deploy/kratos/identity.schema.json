@@ -12,12 +12,16 @@
                     "format": "email",
                     "title": "E-Mail",
                     "minLength": 3,
-                    "network.ory.kratos.identity.v0.traits.identifier": "email",
-                    "network.ory.kratos.identity.v0.traits.verifiable_addresses": [
-                        {
+                    "ory.sh/kratos": {
+                        "credentials": {
+                            "password": {
+                                "identifier": true
+                            }
+                        },
+                        "verification": {
                             "via": "email"
                         }
-                    ]
+                    }
                 },
                 "name": {
                     "type": "object",
