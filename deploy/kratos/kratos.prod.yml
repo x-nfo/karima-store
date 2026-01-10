@@ -76,6 +76,7 @@ session:
     path: /
     same_site: None
     name: karima_session
+    secure: true
 
 log:
   level: warning
