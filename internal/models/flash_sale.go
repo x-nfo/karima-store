@@ -41,16 +41,14 @@ type FlashSale struct {
 	TotalSold   int     `json:"total_sold" gorm:"default:0"`
 	TotalOrders int     `json:"total_orders" gorm:"default:0"`
 	TotalRevenue float64 `json:"total_revenue" gorm:"default:0"`
-
-	// Relations
-	Products   []Product `json:"products,omitempty" gorm:"many2many:flash_sale_products;"`
 }
 
 func (FlashSale) TableName() string {
 	return "flash_sales"
 }
 
-// FlashSaleProduct represents the many-to-many relationship between FlashSale and Product
+// FlashSaleProduct represents join table for many-to-many relationship between FlashSale and Product
+// This is a custom join model with additional fields (not a simple many-to-many)
 type FlashSaleProduct struct {
 	ID          uint      `json:"id" gorm:"primaryKey"`
 	CreatedAt   time.Time `json:"created_at"`

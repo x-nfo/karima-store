@@ -207,20 +207,16 @@ func (s *pricingService) checkFlashSale(productID uint, variantID *uint) (float6
 			continue
 		}
 
-		// Check if product is in flash sale
-		for _, fsp := range fs.Products {
-			if fsp.ID == productID {
-				// Get flash sale product details
-				flashSaleProducts, err := s.flashSaleRepo.GetFlashSaleProducts(fs.ID)
-				if err != nil {
-					continue
-				}
+		// Get flash sale products for this flash sale
+		flashSaleProducts, err := s.flashSaleRepo.GetFlashSaleProducts(fs.ID)
+		if err != nil {
+			continue
+		}
 
-				for _, fspDetail := range flashSaleProducts {
-					if fspDetail.ProductID == productID {
-						return fspDetail.FlashSalePrice, formatTime(fs.EndTime), true
-					}
-				}
+		// Check if product is in flash sale
+		for _, fsp := range flashSaleProducts {
+			if fsp.ProductID == productID {
+				return fsp.FlashSalePrice, formatTime(fs.EndTime), true
 			}
 		}
 	}

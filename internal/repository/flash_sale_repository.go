@@ -31,7 +31,7 @@ func NewFlashSaleRepository(db *gorm.DB) FlashSaleRepository {
 // GetByID retrieves a flash sale by ID
 func (r *flashSaleRepository) GetByID(id uint) (*models.FlashSale, error) {
 	var flashSale models.FlashSale
-	err := r.db.Preload("Products").First(&flashSale, id).Error
+	err := r.db.First(&flashSale, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (r *flashSaleRepository) GetByID(id uint) (*models.FlashSale, error) {
 // GetAll retrieves all flash sales
 func (r *flashSaleRepository) GetAll() ([]models.FlashSale, error) {
 	var flashSales []models.FlashSale
-	err := r.db.Preload("Products").Find(&flashSales).Error
+	err := r.db.Find(&flashSales).Error
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +51,7 @@ func (r *flashSaleRepository) GetAll() ([]models.FlashSale, error) {
 // GetActiveFlashSales retrieves all currently active flash sales
 func (r *flashSaleRepository) GetActiveFlashSales() ([]models.FlashSale, error) {
 	var flashSales []models.FlashSale
-	err := r.db.Preload("Products").
-		Where("status = ?", models.FlashSaleActive).
+	err := r.db.Where("status = ?", models.FlashSaleActive).
 		Where("start_time <= ?", gorm.Expr("NOW()")).
 		Where("end_time >= ?", gorm.Expr("NOW()")).
 		Find(&flashSales).Error
@@ -65,8 +64,7 @@ func (r *flashSaleRepository) GetActiveFlashSales() ([]models.FlashSale, error) 
 // GetUpcomingFlashSales retrieves all upcoming flash sales
 func (r *flashSaleRepository) GetUpcomingFlashSales() ([]models.FlashSale, error) {
 	var flashSales []models.FlashSale
-	err := r.db.Preload("Products").
-		Where("status = ?", models.FlashSaleUpcoming).
+	err := r.db.Where("status = ?", models.FlashSaleUpcoming).
 		Where("start_time > ?", gorm.Expr("NOW()")).
 		Find(&flashSales).Error
 	if err != nil {

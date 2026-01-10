@@ -204,7 +204,6 @@ func TestPricingService_CalculatePrice(t *testing.T) {
 			Status:    models.FlashSaleActive,
 			StartTime: time.Now().Add(-1 * time.Hour),
 			EndTime:   time.Now().Add(1 * time.Hour),
-			Products:  []models.Product{{ID: 2}},
 		}
 		fsProduct := models.FlashSaleProduct{ProductID: 2, FlashSalePrice: 50000}
 

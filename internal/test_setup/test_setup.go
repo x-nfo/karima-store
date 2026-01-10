@@ -202,24 +202,77 @@ func SetupTestRedis(t *testing.T) database.RedisClient {
 }
 
 // RunMigrations runs database migrations
+// Note: For tests, we use AutoMigrate to create tables based on GORM models
+// This ensures test isolation and doesn't depend on SQL migration files
 func RunMigrations(db *gorm.DB) error {
-	return db.AutoMigrate(
-		&models.User{},
-		&models.Product{},
-		&models.ProductVariant{},
-		&models.Media{},
-		&models.Order{},
-		&models.OrderItem{},
-		&models.Cart{},
-		&models.CartItem{},
-		&models.Review{},
-		&models.Wishlist{},
-		&models.Coupon{},
-		&models.CouponUsage{},
-		&models.FlashSale{},
-		&models.FlashSaleProduct{},
-		&models.ShippingZone{},
-		&models.Tax{},
+	// Drop existing tables to ensure clean state for tests
+	// This is safe for test databases
+	tables := []interface{}{
 		&models.StockLog{},
-	)
+		&models.Tax{},
+		&models.ShippingZone{},
+		&models.FlashSale{},
+		&models.CouponUsage{},
+		&models.Coupon{},
+		&models.Wishlist{},
+		&models.Review{},
+		&models.CartItem{},
+		&models.Cart{},
+		&models.OrderItem{},
+		&models.Order{},
+		&models.Media{},
+		&models.ProductVariant{},
+		&models.Product{},
+		&models.User{},
+	}
+
+	// Drop tables in reverse order of dependencies
+	for i := len(tables) - 1; i >= 0; i-- {
+		if err := db.Migrator().DropTable(tables[i]); err != nil {
+			// Ignore errors if tables don't exist
+			continue
+		}
+	}
+
+	// AutoMigrate will create tables with proper schema
+	// We need to disable foreign key constraints temporarily for AutoMigrate
+	// to work correctly with many-to-many relationships
+	db.Exec("SET CONSTRAINTS ALL DEFERRED")
+
+	if err := db.AutoMigrate(tables...); err != nil {
+		return err
+	}
+
+	// Re-enable foreign key constraints
+	db.Exec("SET CONSTRAINTS ALL IMMEDIATE")
+
+	// Manually create flash_sale_products table with correct schema
+	// This is a workaround for GORM AutoMigrate not creating the table correctly
+	// Drop it first if it exists, then recreate with all required columns
+	db.Exec("DROP TABLE IF EXISTS flash_sale_products CASCADE")
+
+	db.Exec(`
+		CREATE TABLE flash_sale_products (
+			id BIGSERIAL PRIMARY KEY,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			flash_sale_id BIGINT NOT NULL,
+			product_id BIGINT NOT NULL,
+			flash_sale_price DECIMAL(10, 2) NOT NULL,
+			flash_sale_stock INTEGER NOT NULL,
+			sold_count INTEGER NOT NULL DEFAULT 0,
+			CONSTRAINT fk_flash_sale_products_flash_sale FOREIGN KEY (flash_sale_id) REFERENCES flash_sales(id) ON DELETE CASCADE,
+			CONSTRAINT fk_flash_sale_products_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+			CONSTRAINT uq_flash_sale_products UNIQUE (flash_sale_id, product_id)
+		)
+	`)
+
+	// Create indexes
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_flash_sale_products_flash_sale_id ON flash_sale_products(flash_sale_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_flash_sale_products_product_id ON flash_sale_products(product_id)")
+
+	return nil
 }
+
+
+
