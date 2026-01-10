@@ -29,13 +29,7 @@ serve:
         - Content-Type
         - Set-Cookie
 
-    csrf:
-      cookie:
-        name: ory_kratos_csrf
-        domain: karimasyari.com
-        path: /
-        same_site: None
-        secure: true
+
 
 selfservice:
   methods:
@@ -82,6 +76,7 @@ session:
     path: /
     same_site: None
     name: karima_session
+    secure: true
 
 log:
   level: warning
