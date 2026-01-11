@@ -114,6 +114,11 @@ services:
       - SECRETS_CIPHER=${ENCRYPTION_KEY}
       - COURIER_SMTP_CONNECTION_URI=smtps://${EMAIL_USER}:${EMAIL_PASSWORD}@${EMAIL_HOST}:${EMAIL_PORT}/?skip_ssl_verify=false
       
+      # WebAuthn Configuration
+      - SELFSERVICE_METHODS_WEBAUTHN_CONFIG_RP_DISPLAY_NAME=Karima Store
+      - SELFSERVICE_METHODS_WEBAUTHN_CONFIG_RP_ID=karimasyari.com
+      - SELFSERVICE_METHODS_WEBAUTHN_CONFIG_RP_ORIGIN=https://karimasyari.com
+      
       # UI URL Overrides - Fixes 404 on redirect
       - SELFSERVICE_FLOWS_LOGIN_UI_URL=${KRATOS_UI_URL}/login
       - SELFSERVICE_FLOWS_REGISTRATION_UI_URL=${KRATOS_UI_URL}/registration

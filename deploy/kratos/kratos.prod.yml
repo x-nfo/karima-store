@@ -40,6 +40,12 @@ selfservice:
   methods:
     password:
       enabled: true
+    webauthn:
+      enabled: true
+      config:
+        passwordless: true
+    code:
+      enabled: true
 
   flows:
     error:
