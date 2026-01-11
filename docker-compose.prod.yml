@@ -112,7 +112,7 @@ services:
       - SELFSERVICE_ALLOWED_RETURN_URLS=${KRATOS_UI_URL}/,https://karimasyari.com/,https://www.karimasyari.com/,https://admin.karimasyari.com/
       - SECRETS_COOKIE=${SESSION_SECRET}
       - SECRETS_CIPHER=${ENCRYPTION_KEY}
-      - COURIER_SMTP_CONNECTION_URI=smtps://${EMAIL_USER}:${EMAIL_PASSWORD}@${EMAIL_HOST}:${EMAIL_PORT}/?skip_ssl_verify=false
+      - COURIER_SMTP_CONNECTION_URI=smtp://${EMAIL_USER}:${EMAIL_PASSWORD}@${EMAIL_HOST}:${EMAIL_PORT}/?skip_ssl_verify=false
       
       # WebAuthn Configuration
       - SELFSERVICE_METHODS_WEBAUTHN_CONFIG_RP_DISPLAY_NAME=Karima Store
