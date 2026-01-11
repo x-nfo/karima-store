@@ -1,7 +1,7 @@
 {
-    "$id": "https://schemas.ory.sh/presets/kratos/identity.email.schema.json",
+    "$id": "https://schemas.ory.sh/presets/kratos/identity.schema.json",
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Person",
+    "title": "User Identity Schema",
     "type": "object",
     "properties": {
         "traits": {
@@ -10,39 +10,69 @@
                 "email": {
                     "type": "string",
                     "format": "email",
-                    "title": "E-Mail",
+                    "title": "Email Address",
                     "minLength": 3,
                     "ory.sh/kratos": {
                         "credentials": {
                             "password": {
                                 "identifier": true
+                            },
+                            "webauthn": {
+                                "identifier": true
+                            },
+                            "code": {
+                                "identifier": true,
+                                "via": "email"
                             }
-                        },
-                        "verification": {
-                            "via": "email"
+                        }
+                    }
+                },
+                "phone_number": {
+                    "type": "string",
+                    "title": "Phone Number",
+                    "description": "International Format (e.g., +628123456789)",
+                    "pattern": "^\\+?[1-9]\\d{1,14}$",
+                    "ory.sh/kratos": {
+                        "credentials": {
+                            "code": {
+                                "identifier": true,
+                                "via": "sms"
+                            }
                         }
                     }
                 },
                 "name": {
                     "type": "object",
+                    "title": "Full Name",
                     "properties": {
                         "first": {
                             "type": "string",
-                            "title": "First Name"
+                            "title": "First Name",
+                            "minLength": 1,
+                            "maxLength": 50
                         },
                         "last": {
                             "type": "string",
-                            "title": "Last Name"
+                            "title": "Last Name",
+                            "minLength": 1,
+                            "maxLength": 50
                         }
-                    }
+                    },
+                    "required": [
+                        "first",
+                        "last"
+                    ]
                 },
-                "phone": {
-                    "type": "string",
-                    "title": "Phone Number"
+                "consent": {
+                    "type": "boolean",
+                    "title": "Consent to Terms and Conditions",
+                    "const": true
                 }
             },
             "required": [
-                "email"
+                "email",
+                "name",
+                "consent"
             ],
             "additionalProperties": false
         }
