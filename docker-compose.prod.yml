@@ -83,7 +83,7 @@ services:
     build:
       context: ./deploy/kratos
       dockerfile: Dockerfile
-    image: karima_store_kratos:latest
+    image: karima_store_kratos:v25.4.0
     container_name: kratos_migrate
     environment:
       - DSN=postgres://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT:-5432}/${DB_NAME}?sslmode=disable&max_conns=20&max_idle_conns=4
@@ -100,7 +100,7 @@ services:
     build:
       context: ./deploy/kratos
       dockerfile: Dockerfile
-    image: karima_store_kratos:v1.0.8
+    image: karima_store_kratos:v25.4.0
     container_name: kratos
     restart: always
     environment:

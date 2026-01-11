@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   kratos-migrate:
-    image: oryd/kratos:v1.1.0
+    image: oryd/kratos:v25.4.0
     environment:
       - DSN=postgres://${DB_USER:-postgres}:${DB_PASSWORD:-secret}@db:5432/kratos?sslmode=disable&max_conns=20&max_idle_conns=4
     volumes:
@@ -12,7 +12,7 @@ services:
       - default
 
   kratos:
-    image: oryd/kratos:v1.1.0
+    image: oryd/kratos:v25.4.0
     depends_on:
       - kratos-migrate
       - mailslurper
