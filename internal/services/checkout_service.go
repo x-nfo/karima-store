@@ -301,7 +301,7 @@ func (s *checkoutService) ProcessPaymentNotification(notification *models.Midtra
 
 // generateOrderNumber generates a unique order number
 func (s *checkoutService) generateOrderNumber() string {
-	return "ORD" + time.Now().Format("20060102150405")
+	return fmt.Sprintf("ORD%s%06d", time.Now().Format("20060102150405"), time.Now().Nanosecond()/1000)
 }
 
 // reduceStockWithTx reduces stock and logs changes
