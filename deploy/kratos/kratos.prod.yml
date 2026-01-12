@@ -9,12 +9,12 @@ serve:
     host: 0.0.0.0
     cors:
       enabled: true
-      # CORS allowed origins cannot be easily overridden by ENV in older versions, 
+      # CORS allowed origins cannot be easily overridden by ENV in older versions,
       # but we try to keep it generic or rely on Kratos validating the Origin header correctly
       allowed_origins:
         - https://karimasyari.com
         - https://www.karimasyari.com
-        - https://admin.ks-backend.cloud
+        - https://admin.karimasyari.com
         - http://localhost:3000
       allowed_methods:
         - POST

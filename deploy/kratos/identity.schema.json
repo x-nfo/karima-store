@@ -15,13 +15,13 @@
                     "ory.sh/kratos": {
                         "credentials": {
                             "password": {
-                                "identifier": true
+                                "identifier": false
                             },
                             "webauthn": {
                                 "identifier": true
                             },
                             "code": {
-                                "identifier": true,
+                                "identifier": false,
                                 "via": "email"
                             }
                         }
@@ -69,11 +69,7 @@
                     "const": true
                 }
             },
-            "required": [
-                "email",
-                "name",
-                "consent"
-            ],
+            "required": [],
             "additionalProperties": false
         }
     }

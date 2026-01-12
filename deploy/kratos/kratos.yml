@@ -4,13 +4,16 @@ dsn: postgres://postgres:secret@karima_postgres:5432/kratos?sslmode=disable&max_
 
 serve:
   public:
-    base_url: http://127.0.0.1:4433/
+    base_url: http://localhost:4433/
     cors:
       enabled: true
       allowed_origins:
+        - http://localhost:4455
         - http://127.0.0.1:4455
         - http://localhost:3000
         - http://127.0.0.1:3000
+        - http://localhost:4322
+        - http://127.0.0.1:4322
       allowed_methods:
         - POST
         - GET
@@ -26,67 +29,81 @@ serve:
         - Content-Type
         - Set-Cookie
   admin:
-    base_url: http://127.0.0.1:4434/
+    base_url: http://localhost:4434/
 
 selfservice:
-  default_browser_return_url: http://127.0.0.1:4455/
+  default_browser_return_url: http://localhost:4455/
   allowed_return_urls:
+    - http://localhost:4455/
     - http://127.0.0.1:4455/
     - http://localhost:3000/
     - http://127.0.0.1:3000/
+    - http://localhost:4322/
+    - http://127.0.0.1:4322/
 
   methods:
     password:
-      enabled: true
+      enabled: false
     # oidc:
     #   enabled: false
 
+    webauthn:
+      enabled: true
+      config:
+        passwordless: false
+        rp:
+          display_name: Karima Store
+          id: localhost
+          origins:
+            - http://localhost:4455
+            - http://127.0.0.1:4455
+
   flows:
     error:
-      ui_url: http://127.0.0.1:4455/error
+      ui_url: http://localhost:4455/error
 
     settings:
-      ui_url: http://127.0.0.1:4455/settings
+      ui_url: http://localhost:4455/settings
       privileged_session_max_age: 15m
       after:
-        default_browser_return_url: http://127.0.0.1:4455/
+        default_browser_return_url: http://localhost:4455/
 
     recovery:
       enabled: true
-      ui_url: http://127.0.0.1:4455/recovery
+      ui_url: http://localhost:4455/recovery
       after:
-        default_browser_return_url: http://127.0.0.1:4455/
+        default_browser_return_url: http://localhost:4455/
 
     verification:
       enabled: true
-      ui_url: http://127.0.0.1:4455/verification
+      ui_url: http://localhost:4455/verification
       after:
-        default_browser_return_url: http://127.0.0.1:4455/
+        default_browser_return_url: http://localhost:4455/
 
     logout:
       after:
-        default_browser_return_url: http://127.0.0.1:4455/login
+        default_browser_return_url: http://localhost:4455/login
 
     login:
-      ui_url: http://127.0.0.1:4455/login
+      ui_url: http://localhost:4455/login
       lifespan: 10m
       after:
-        default_browser_return_url: http://127.0.0.1:4455/
+        default_browser_return_url: http://localhost:4455/
 
     registration:
       lifespan: 10m
-      ui_url: http://127.0.0.1:4455/registration
+      ui_url: http://localhost:4455/registration
       after:
         password:
           hooks:
             - hook: session
-        default_browser_return_url: http://127.0.0.1:4455/
+        default_browser_return_url: http://localhost:4455/
 
 # Session configuration
 session:
   lifespan: 24h
   cookie:
-    domain: 127.0.0.1
+    domain: localhost
     path: /
     same_site: Lax
     name: ory_kratos_session

@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   kratos-migrate:
@@ -32,8 +31,9 @@ services:
     ports:
       - "4455:3000"  # External:Internal - UI runs on port 3000 internally
     environment:
-      - KRATOS_PUBLIC_URL=http://127.0.0.1:4433
-      - KRATOS_ADMIN_URL=http://127.0.0.1:4434
+      - KRATOS_PUBLIC_URL=http://kratos:4433
+      - KRATOS_ADMIN_URL=http://kratos:4434
+      - KRATOS_BROWSER_URL=http://localhost:4433
       - COOKIE_SECRET=super-secret-cookie-secret-1234
       - CSRF_COOKIE_NAME=ory_kratos_csrf
       - CSRF_COOKIE_SECRET=super-secret-csrf-secret-1234
